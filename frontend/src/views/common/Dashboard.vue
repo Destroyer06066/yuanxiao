@@ -43,23 +43,35 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import {
-  User, Trophy, Clock, Check
-} from '@element-plus/icons-vue'
+import axios from '@/api/axios'
 
 const authStore = useAuthStore()
 
 const stats = ref([
-  { label: '待处理考生', value: 128, icon: 'Clock', color: '#409eff' },
-  { label: '已录取', value: 86, icon: 'Trophy', color: '#67c23a' },
-  { label: '已确认', value: 54, icon: 'Check', color: '#e6a23c' },
-  { label: '已报到', value: 32, icon: 'User', color: '#25a861' },
+  { label: '待处理考生', value: 0, icon: 'Clock', color: '#409eff' },
+  { label: '已录取', value: 0, icon: 'Trophy', color: '#67c23a' },
+  { label: '已确认', value: 0, icon: 'Check', color: '#e6a23c' },
+  { label: '已报到', value: 0, icon: 'User', color: '#25a861' },
 ])
 
 const recentOps = ref<any[]>([])
 
+async function loadStats() {
+  try {
+    const res = await axios.get('/api/v1/statistics/kpis')
+    const d = res.data.data || {}
+    stats.value[0].value = d.totalPushed ?? 0
+    stats.value[1].value = d.admitted ?? 0
+    stats.value[2].value = d.confirmed ?? 0
+    stats.value[3].value = d.checkedIn ?? 0
+  } catch (e) {
+    // 统计接口失败不影响页面渲染
+  }
+}
+
 onMounted(() => {
   authStore.fetchUserInfo()
+  loadStats()
 })
 </script>
 
