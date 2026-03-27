@@ -205,12 +205,12 @@ onMounted(async () => {
 })
 
 async function loadData() {
-  const [{ data: roleList }, { data: permModules }] = await Promise.all([
+  const [{ data: roleResult }, { data: permResult }] = await Promise.all([
     getRoles(),
     getPermissionTree(),
   ])
-  roles.value = roleList
-  permissionModules.value = permModules
+  roles.value = roleResult.data as Role[]
+  permissionModules.value = permResult.data as PermissionModule[]
 
   if (roles.value.length > 0 && !selectedRole.value) {
     selectRole(roles.value[0])
@@ -255,14 +255,16 @@ async function submitForm() {
   submitting.value = true
   try {
     if (dialogMode.value === 'create') {
-      const { data } = await createRole(form)
-      roles.value.push(data)
+      const res = await createRole(form)
+      const newRole = res.data.data as Role
+      roles.value.push(newRole)
       ElMessage.success('角色创建成功')
     } else if (selectedRole.value) {
-      const { data } = await updateRole(selectedRole.value.id, form)
-      const idx = roles.value.findIndex(r => r.id === data.id)
-      if (idx >= 0) roles.value[idx] = data
-      if (selectedRole.value.id === data.id) selectedRole.value = data
+      const res = await updateRole(selectedRole.value.id, form)
+      const updatedRole = res.data.data as Role
+      const idx = roles.value.findIndex(r => r.id === updatedRole.id)
+      if (idx >= 0) roles.value[idx] = updatedRole
+      if (selectedRole.value.id === updatedRole.id) selectedRole.value = updatedRole
       ElMessage.success('角色更新成功')
     }
     dialogVisible.value = false
@@ -313,11 +315,12 @@ async function savePermissions() {
         if (p.isExplicit) permissionIds.push(p.id)
       }
     }
-    const { data } = await updateRolePermissions(selectedRole.value.id, permissionIds)
-    const idx = roles.value.findIndex(r => r.id === data.id)
-    if (idx >= 0) roles.value[idx] = data
-    selectedRole.value = data
-    const permSet = new Set(data.permissions.filter((p: any) => p.isExplicit).map((p: any) => `${p.module}:${p.action}`))
+    const res = await updateRolePermissions(selectedRole.value.id, permissionIds)
+    const updatedRole = res.data.data as Role
+    const idx = roles.value.findIndex(r => r.id === updatedRole.id)
+    if (idx >= 0) roles.value[idx] = updatedRole
+    selectedRole.value = updatedRole
+    const permSet = new Set(updatedRole.permissions.filter((p: any) => p.isExplicit).map((p: any) => `${p.module}:${p.action}`))
     for (const mod of permissionModules.value) {
       for (const p of mod.permissions) {
         p.isExplicit = permSet.has(`${p.module}:${p.action}`)
