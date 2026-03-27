@@ -100,7 +100,8 @@ public class AccountService {
                 account.getRole(),
                 account.getSchoolId(),
                 account.getRealName(),
-                UUID.randomUUID().toString()
+                UUID.randomUUID().toString(),
+                java.util.List.of()
         );
 
         // 写入 Redis Session

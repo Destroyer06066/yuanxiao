@@ -5,8 +5,8 @@ import com.campus.platform.entity.Permission;
 import com.campus.platform.entity.Role;
 import com.campus.platform.entity.RolePermission;
 import com.campus.platform.entity.dto.*;
-import com.campus.platform.exception.BusinessException;
-import com.campus.platform.exception.ErrorCode;
+import com.campus.platform.common.exception.BusinessException;
+import com.campus.platform.common.exception.ErrorCode;
 import com.campus.platform.repository.PermissionRepository;
 import com.campus.platform.repository.RolePermissionRepository;
 import com.campus.platform.repository.RoleRepository;
@@ -47,7 +47,7 @@ public class RoleService {
     /** 获取角色详情 */
     public RoleDTO getRole(UUID id) {
         Role role = roleRepository.selectById(id);
-        if (role == null) throw new BusinessException(ErrorCode.NOT_FOUND, "角色不存在");
+        if (role == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "角色不存在");
         return toDTO(role);
     }
 
@@ -56,7 +56,7 @@ public class RoleService {
     public RoleDTO createRole(CreateRoleRequest req) {
         long count = roleRepository.selectCount(
                 new LambdaQueryWrapper<Role>().eq(Role::getRoleKey, req.getRoleKey()));
-        if (count > 0) throw new BusinessException(ErrorCode.BAD_REQUEST, "角色标识已存在");
+        if (count > 0) throw new BusinessException(ErrorCode.INVALID_PARAMETER, "角色标识已存在");
 
         Role role = new Role();
         role.setRoleKey(req.getRoleKey());
@@ -75,7 +75,7 @@ public class RoleService {
     @Transactional
     public RoleDTO updateRole(UUID id, UpdateRoleRequest req) {
         Role role = roleRepository.selectById(id);
-        if (role == null) throw new BusinessException(ErrorCode.NOT_FOUND, "角色不存在");
+        if (role == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "角色不存在");
         if (Boolean.TRUE.equals(role.getIsPreset())) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "预设角色不可修改");
         }
@@ -90,7 +90,7 @@ public class RoleService {
     @Transactional
     public void deleteRole(UUID id) {
         Role role = roleRepository.selectById(id);
-        if (role == null) throw new BusinessException(ErrorCode.NOT_FOUND, "角色不存在");
+        if (role == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "角色不存在");
         if (Boolean.TRUE.equals(role.getIsPreset())) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "预设角色不可删除");
         }
@@ -102,7 +102,7 @@ public class RoleService {
     @Transactional
     public RoleDTO updateRolePermissions(UUID id, UpdateRolePermissionsRequest req) {
         Role role = roleRepository.selectById(id);
-        if (role == null) throw new BusinessException(ErrorCode.NOT_FOUND, "角色不存在");
+        if (role == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "角色不存在");
         if (Boolean.TRUE.equals(role.getIsPreset())) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "预设角色不可修改权限");
         }

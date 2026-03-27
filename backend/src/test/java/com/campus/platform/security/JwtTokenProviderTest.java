@@ -39,7 +39,8 @@ class JwtTokenProviderTest {
                 "OP_ADMIN",
                 null,
                 "管理员",
-                UUID.randomUUID().toString()
+                UUID.randomUUID().toString(),
+                java.util.List.of("*")
         );
     }
 
@@ -49,7 +50,8 @@ class JwtTokenProviderTest {
                 "SCHOOL_ADMIN",
                 schoolId,
                 "招生负责人",
-                UUID.randomUUID().toString()
+                UUID.randomUUID().toString(),
+                java.util.List.of("major:read", "quota:read")
         );
     }
 
