@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { login, getCurrentUser, logout } from '@/api/auth'
 import type { LoginRequest, UserInfo } from '@/api/auth'
 import router from '@/router'
+import { usePermissionStore } from './permission'
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string>(localStorage.getItem('access_token') || '')
@@ -26,6 +27,10 @@ export const useAuthStore = defineStore('auth', () => {
     if (!token.value) return
     const res = await getCurrentUser()
     userInfo.value = res.data.data as UserInfo
+    const permStore = usePermissionStore()
+    if (userInfo.value && userInfo.value.role !== 'OP_ADMIN') {
+      permStore.fetchModules()
+    }
   }
 
   async function logoutAction() {

@@ -97,6 +97,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '账号管理', roles: ['OP_ADMIN', 'SCHOOL_ADMIN'] },
       },
       {
+        path: '/roles',
+        name: 'RoleManage',
+        component: () => import('@/views/admin/RoleManage.vue'),
+        meta: { title: '角色管理', roles: ['OP_ADMIN'] },
+      },
+      {
         path: '/notifications',
         name: 'Notifications',
         component: () => import('@/views/common/Notifications.vue'),

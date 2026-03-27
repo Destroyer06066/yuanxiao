@@ -62,6 +62,11 @@
           <el-icon><Avatar /></el-icon>
           <template #title>账号管理</template>
         </el-menu-item>
+
+        <el-menu-item v-if="authStore.isOpAdmin" index="/roles">
+          <el-icon><Key /></el-icon>
+          <template #title>角色管理</template>
+        </el-menu-item>
       </el-menu>
     </el-aside>
 
