@@ -3,6 +3,8 @@ package com.campus.platform.controller;
 import com.campus.platform.common.exception.BusinessException;
 import com.campus.platform.common.exception.ErrorCode;
 import com.campus.platform.common.result.Result;
+import com.campus.platform.entity.Account;
+import com.campus.platform.repository.AccountRepository;
 import com.campus.platform.security.AccountPrincipal;
 import com.campus.platform.security.JwtTokenProvider;
 import com.campus.platform.security.SecurityContext;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @Tag(name = "认证", description = "登录、登出、密码管理")
 @RestController
@@ -31,6 +34,7 @@ public class AuthController {
     private final RedisService redisService;
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordEncoder passwordEncoder;
+    private final AccountRepository accountRepository;
 
     // ========== 登录 ==========
 
@@ -77,7 +81,17 @@ public class AuthController {
     @Operation(summary = "强制修改密码（首次登录）")
     @PutMapping("/password/force-change")
     public Result<Void> forceChangePassword(@RequestBody @Valid PasswordChangeRequest req) {
-        // 此处简化处理，完整实现需要注入 AccountRepository
+        AccountPrincipal current = SecurityContext.get();
+        if (current == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "未登录");
+        }
+        Account account = accountRepository.findById(current.getAccountId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND, "账号不存在"));
+        if (passwordEncoder.matches(req.getNewPassword(), account.getPasswordHash())) {
+            throw new BusinessException(ErrorCode.PASSWORD_SAME_AS_OLD, "新密码不能与旧密码相同");
+        }
+        String newHash = passwordEncoder.encode(req.getNewPassword());
+        accountRepository.updatePassword(current.getAccountId(), newHash);
         return Result.ok();
     }
 
@@ -101,8 +115,11 @@ public class AuthController {
         if (!stored.equals(req.getCode())) {
             throw new BusinessException(ErrorCode.SMS_CODE_ERROR, "验证码错误");
         }
+        Account account = accountRepository.findByUsername(req.getUsername())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND, "账号不存在"));
+        String newHash = passwordEncoder.encode(req.getNewPassword());
         redisService.deleteSmsCode(req.getUsername());
-        // 更新密码逻辑...
+        accountRepository.updatePassword(UUID.fromString(account.getAccountId()), newHash);
         return Result.ok();
     }
 

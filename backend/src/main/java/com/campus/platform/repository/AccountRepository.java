@@ -46,4 +46,9 @@ public interface AccountRepository extends BaseMapper<Account> {
 
     @Select("SELECT EXISTS(SELECT 1 FROM account WHERE school_id = #{schoolId} AND status != 'INACTIVE')")
     int countActiveBySchool(@Param("schoolId") UUID schoolId);
+
+    @Update("UPDATE account SET password_hash = #{passwordHash}, must_change_password = false " +
+            "WHERE account_id = #{accountId}")
+    int updatePassword(@Param("accountId") UUID accountId,
+                       @Param("passwordHash") String passwordHash);
 }
