@@ -1,0 +1,56 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #app {
+  height: 100%;
+  font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  color: #303133;
+  background-color: #f0f2f5;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.page-container {
+  padding: 20px;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+
+  .page-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #303133;
+  }
+}
+
+.status-tag {
+  &.PENDING    { color: #909399; background: #f4f4f5; border-color: #d3d4d6; }
+  &.CONDITIONAL { color: #e6a23c; background: #fdf6ec; border-color: #faecd8; }
+  &.ADMITTED    { color: #409eff; background: #ecf5ff; border-color: #d9ecff; }
+  &.CONFIRMED  { color: #67c23a; background: #f0f9eb; border-color: #e1f3d8; }
+  &.MATERIAL_RECEIVED { color: #25a861; background: #e8f8f0; border-color: #ccefe0; }
+  &.CHECKED_IN { color: #0d9a58; background: #d1f0e3; border-color: #a8e0c5; }
+  &.REJECTED   { color: #f56c6c; background: #fef0f0; border-color: #fde2e2; }
+  &.INVALIDATED { color: #c0c4cc; background: #f4f4f5; border-color: #d3d4d6; }
+}
+
+.el-table {
+  .cell {
+    padding: 8px 12px;
+  }
+}
+
+.el-card {
+  border-radius: 8px;
+}

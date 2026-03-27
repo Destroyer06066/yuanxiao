@@ -1,0 +1,83 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: campus_postgres
+    environment:
+      POSTGRES_DB: campus_platform
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: campus_redis
+    command: redis-server --requirepass ""
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: campus_minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"   # API
+      - "9001:9001"   # Console
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mock-server:
+    build:
+      context: ../mock-server
+      dockerfile: ../docker/Dockerfile.mock
+    container_name: campus_mock
+    ports:
+      - "8081:8081"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # 初始化数据库（运行一次后自动停止）
+  db-init:
+    image: postgres:15-alpine
+    container_name: campus_db_init
+    volumes:
+      - ../backend/src/main/resources/db/migration:/migration
+    command: >
+      bash -c "
+        sleep 5 &&
+        PGPASSWORD=postgres123 psql -h postgres -U postgres -d campus_platform -f /migration/V1__init_schema.sql
+      "
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:

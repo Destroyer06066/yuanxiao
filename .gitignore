@@ -1,0 +1,51 @@
+# Java
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+
+# Maven
+.mvn/
+mvnw
+mvnw.cmd
+
+# Node
+node_modules/
+dist/
+*.local
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+._*
+Thumbs.db
+
+# Build artifacts
+backend/target/
+mock-server/target/
+
+# Keys (never commit real keys)
+*.pem
+keys/
+
+# Logs
+*.log
+logs/
+
+# Docker volumes
+docker/postgres_data/
+docker/redis_data/
+docker/minio_data/

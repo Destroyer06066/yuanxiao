@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.campus.platform.repository.CandidatePushRepository">
+
+    <select id="pageQuery" resultType="com.campus.platform.entity.CandidatePush">
+        SELECT cp.*,
+               m.major_name  AS majorName,
+               am.major_name AS admissionMajorName,
+               a.real_name   AS operatorName
+        FROM candidate_push cp
+        LEFT JOIN major m   ON cp.major_id = m.major_id
+        LEFT JOIN major am  ON cp.admission_major_id = am.major_id
+        LEFT JOIN account a ON cp.operator_id = a.account_id
+        WHERE cp.school_id = #{schoolId}
+          <if test="statusList != null and statusList.size > 0">
+            AND cp.status IN
+            <foreach collection="statusList" item="s" open="(" separator="," close=")">
+                #{s}
+            </foreach>
+          </if>
+          <if test="minScore != null">
+            AND cp.total_score &gt;= #{minScore}
+          </if>
+          <if test="maxScore != null">
+            AND cp.total_score &lt;= #{maxScore}
+          </if>
+          <if test="intentionKeyword != null and intentionKeyword != ''">
+            AND cp.intention ILIKE '%' || #{intentionKeyword} || '%'
+          </if>
+          <if test="nationality != null and nationality != ''">
+            AND cp.nationality = #{nationality}
+          </if>
+          <if test="pushTimeStart != null">
+            AND cp.pushed_at &gt;= #{pushTimeStart}
+          </if>
+          <if test="pushTimeEnd != null">
+            AND cp.pushed_at &lt;= #{pushTimeEnd}
+          </if>
+          <if test="majorId != null">
+            AND (cp.major_id = #{majorId} OR cp.admission_major_id = #{majorId})
+          </if>
+          <if test="round != null">
+            AND cp.push_round = #{round}
+          </if>
+        ORDER BY
+            <choose>
+                <when test="sort == 'totalScore'">cp.total_score</when>
+                <otherwise>cp.pushed_at</otherwise>
+            </choose>
+            <choose>
+                <when test="order == 'ASC'">ASC</when>
+                <otherwise>DESC</otherwise>
+            </choose>
+    </select>
+
+    <select id="findExpiredConditionals" resultType="com.campus.platform.entity.CandidatePush">
+        SELECT * FROM candidate_push
+        WHERE status = 'CONDITIONAL'
+          AND condition_deadline &lt;= #{now}
+    </select>
+
+    <select id="findById" resultType="com.campus.platform.entity.CandidatePush">
+        SELECT * FROM candidate_push WHERE push_id = #{pushId}
+    </select>
+
+    <select id="findBySchoolAndCandidate" resultType="com.campus.platform.entity.CandidatePush">
+        SELECT * FROM candidate_push
+        WHERE school_id = #{schoolId} AND candidate_id = #{candidateId}
+    </select>
+
+    <select id="findByCandidateId" resultType="com.campus.platform.entity.CandidatePush">
+        SELECT * FROM candidate_push WHERE candidate_id = #{candidateId}
+    </select>
+
+</mapper>

@@ -1,0 +1,10 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: campus-mock-server
+
+logging:
+  level:
+    com.campus.mock: DEBUG
