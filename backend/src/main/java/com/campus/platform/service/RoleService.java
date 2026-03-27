@@ -59,6 +59,7 @@ public class RoleService {
         if (count > 0) throw new BusinessException(ErrorCode.INVALID_PARAMETER, "角色标识已存在");
 
         Role role = new Role();
+        role.setId(UUID.randomUUID());
         role.setRoleKey(req.getRoleKey());
         role.setName(req.getName());
         role.setDescription(req.getDescription());

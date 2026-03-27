@@ -10,7 +10,8 @@ CREATE TABLE role (
     preset_key      VARCHAR(50),
     status          VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     created_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at      TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted         INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX idx_role_preset_key ON role (preset_key);

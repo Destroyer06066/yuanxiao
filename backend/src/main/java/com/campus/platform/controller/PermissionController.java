@@ -1,12 +1,12 @@
 package com.campus.platform.controller;
 
+import com.campus.platform.common.result.Result;
 import com.campus.platform.entity.dto.PermissionModuleDTO;
 import com.campus.platform.security.RequireRole;
 import com.campus.platform.service.RoleService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,7 +22,7 @@ public class PermissionController {
     @Operation(summary = "获取权限树")
     @GetMapping
     @RequireRole("OP_ADMIN")
-    public ResponseEntity<List<PermissionModuleDTO>> getPermissionTree() {
-        return ResponseEntity.ok(roleService.getPermissionModules());
+    public Result<List<PermissionModuleDTO>> getPermissionTree() {
+        return Result.ok(roleService.getPermissionModules());
     }
 }
