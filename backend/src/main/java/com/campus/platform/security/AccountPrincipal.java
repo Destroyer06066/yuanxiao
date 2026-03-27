@@ -3,6 +3,7 @@ package com.campus.platform.security;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -14,6 +15,7 @@ public class AccountPrincipal {
     private UUID schoolId;
     private String realName;
     private String jti; // JWT ID，用于会话唯一性
+    private List<String> permissions;
 
     public boolean isOpAdmin() {
         return "OP_ADMIN".equals(role);

@@ -14,6 +14,7 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -42,6 +43,7 @@ public class JwtTokenProvider {
                 .claim("role", principal.getRole())
                 .claim("schoolId", principal.getSchoolId() != null ? principal.getSchoolId().toString() : null)
                 .claim("realName", principal.getRealName())
+                .claim("permissions", principal.getPermissions() != null ? principal.getPermissions() : List.of())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(expiry))
                 .signWith(secretKey)
@@ -59,13 +61,15 @@ public class JwtTokenProvider {
                     .parseSignedClaims(token)
                     .getPayload();
 
+            List<String> perms = claims.get("permissions", List.class);
             return new AccountPrincipal(
                     UUID.fromString(claims.getSubject()),
                     claims.get("role", String.class),
                     claims.get("schoolId", String.class) != null
                             ? UUID.fromString(claims.get("schoolId", String.class)) : null,
                     claims.get("realName", String.class),
-                    claims.getId()
+                    claims.getId(),
+                    perms
             );
         } catch (JwtException e) {
             log.warn("JWT 解析失败: {}", e.getMessage());
