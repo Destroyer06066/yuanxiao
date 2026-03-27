@@ -62,7 +62,7 @@ const total = ref(0)
 const hasUnread = ref(false)
 
 async function fetchNotifications() {
-  const res = await axios.get('/api/v1/notifications', {
+  const res = await axios.get('/v1/notifications', {
     params: { page: page.value, pageSize: 20 },
   })
   list.value = res.data.data.records
@@ -76,12 +76,12 @@ function formatTime(ts: string) {
 
 async function handleRead(item: Notification) {
   if (item.isRead) return
-  await axios.patch(`/api/v1/notifications/${item.id}/read`)
+  await axios.patch(`/v1/notifications/${item.id}/read`)
   item.isRead = true
 }
 
 async function markAllRead() {
-  await axios.post('/api/v1/notifications/read-all')
+  await axios.post('/v1/notifications/read-all')
   list.value.forEach((n: Notification) => (n.isRead = true))
   hasUnread.value = false
   ElMessage.success('已全部标为已读')

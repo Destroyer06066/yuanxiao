@@ -4,14 +4,19 @@
 
     <select id="pageQuery" resultType="com.campus.platform.entity.CandidatePush">
         SELECT cp.*,
-               m.major_name  AS majorName,
-               am.major_name AS admissionMajorName,
-               a.real_name   AS operatorName
+               m.major_name   AS majorName,
+               am.major_name  AS admissionMajorName,
+               a.real_name    AS operatorName,
+               s.school_name  AS schoolName
         FROM candidate_push cp
         LEFT JOIN major m   ON cp.major_id = m.major_id
         LEFT JOIN major am  ON cp.admission_major_id = am.major_id
         LEFT JOIN account a ON cp.operator_id = a.account_id
-        WHERE cp.school_id = #{schoolId}
+        LEFT JOIN school s  ON cp.school_id = s.school_id
+        WHERE 1=1
+          <if test="schoolId != null">
+            AND cp.school_id = #{schoolId}
+          </if>
           <if test="statusList != null and statusList.size > 0">
             AND cp.status IN
             <foreach collection="statusList" item="s" open="(" separator="," close=")">
@@ -42,15 +47,15 @@
           <if test="round != null">
             AND cp.push_round = #{round}
           </if>
-        ORDER BY
-            <choose>
-                <when test="sort == 'totalScore'">cp.total_score</when>
-                <otherwise>cp.pushed_at</otherwise>
-            </choose>
-            <choose>
-                <when test="order == 'ASC'">ASC</when>
-                <otherwise>DESC</otherwise>
-            </choose>
+        <choose>
+            <when test="sort == 'totalScore'">ORDER BY cp.total_score</when>
+            <when test="sort == 'conditionDeadline'">ORDER BY cp.condition_deadline</when>
+            <when test="sort == 'pushedAt' or sort == null">ORDER BY cp.pushed_at</when>
+        </choose>
+        <choose>
+            <when test="order == 'ASC'">ASC</when>
+            <otherwise>DESC</otherwise>
+        </choose>
     </select>
 
     <select id="findExpiredConditionals" resultType="com.campus.platform.entity.CandidatePush">
@@ -70,6 +75,51 @@
 
     <select id="findByCandidateId" resultType="com.campus.platform.entity.CandidatePush">
         SELECT * FROM candidate_push WHERE candidate_id = #{candidateId}
+    </select>
+
+    <select id="selectForExport" resultType="com.campus.platform.entity.CandidatePush">
+        SELECT cp.*,
+               s.school_name       AS schoolName,
+               am.major_name       AS admissionMajorName
+        FROM candidate_push cp
+        LEFT JOIN school s  ON cp.school_id = s.school_id
+        LEFT JOIN major am  ON cp.admission_major_id = am.major_id
+        WHERE 1=1
+        <if test="schoolId != null">
+            AND cp.school_id = #{schoolId}
+        </if>
+        <if test="statusList != null and statusList.size > 0">
+            AND cp.status IN
+            <foreach collection="statusList" item="s" open="(" separator="," close=")">
+                #{s}
+            </foreach>
+        </if>
+        <if test="minScore != null">
+            AND cp.total_score &gt;= #{minScore}
+        </if>
+        <if test="maxScore != null">
+            AND cp.total_score &lt;= #{maxScore}
+        </if>
+        <if test="intentionKeyword != null and intentionKeyword != ''">
+            AND cp.intention ILIKE '%' || #{intentionKeyword} || '%'
+        </if>
+        <if test="nationality != null and nationality != ''">
+            AND cp.nationality = #{nationality}
+        </if>
+        <if test="pushTimeStart != null">
+            AND cp.pushed_at &gt;= #{pushTimeStart}
+        </if>
+        <if test="pushTimeEnd != null">
+            AND cp.pushed_at &lt;= #{pushTimeEnd}
+        </if>
+        <if test="majorId != null">
+            AND (cp.major_id = #{majorId} OR cp.admission_major_id = #{majorId})
+        </if>
+        <if test="round != null">
+            AND cp.push_round = #{round}
+        </if>
+        ORDER BY cp.pushed_at DESC
+        LIMIT 5000
     </select>
 
 </mapper>

@@ -46,4 +46,8 @@ public class AuditLog {
 
     @TableField("operated_at")
     private Instant operatedAt;
+
+    // JOIN 扩展字段（非数据库列）
+    private String operatorName;
+    private String schoolName;
 }

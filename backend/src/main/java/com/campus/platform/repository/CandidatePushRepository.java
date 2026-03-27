@@ -22,7 +22,7 @@ public interface CandidatePushRepository extends BaseMapper<CandidatePush> {
 
     IPage<CandidatePush> pageQuery(Page<CandidatePush> page,
                                    @Param("schoolId") UUID schoolId,
-                                   @Param("status") List<String> statusList,
+                                   @Param("statusList") List<String> statusList,
                                    @Param("minScore") Float minScore,
                                    @Param("maxScore") Float maxScore,
                                    @Param("intentionKeyword") String intentionKeyword,
@@ -35,4 +35,18 @@ public interface CandidatePushRepository extends BaseMapper<CandidatePush> {
                                    @Param("order") String order);
 
     List<CandidatePush> findExpiredConditionals(@Param("now") Instant now);
+
+    /**
+     * 导出查询：全量含 JOIN 字段
+     */
+    List<CandidatePush> selectForExport(@Param("schoolId") UUID schoolId,
+                                       @Param("statusList") List<String> statusList,
+                                       @Param("minScore") java.math.BigDecimal minScore,
+                                       @Param("maxScore") java.math.BigDecimal maxScore,
+                                       @Param("intentionKeyword") String intentionKeyword,
+                                       @Param("nationality") String nationality,
+                                       @Param("pushTimeStart") Instant pushTimeStart,
+                                       @Param("pushTimeEnd") Instant pushTimeEnd,
+                                       @Param("majorId") UUID majorId,
+                                       @Param("round") Integer round);
 }

@@ -12,8 +12,11 @@ export interface Student {
   status: string
   statusDesc: string
   admissionMajor: string
+  admissionMajorId: string
   pushRound: number
   pushedAt: string
+  schoolId?: string
+  schoolName?: string
 }
 
 export interface StudentQuery {
@@ -62,11 +65,23 @@ export const directAdmission = (data: AdmissionRequest) =>
 export const conditionalAdmission = (data: ConditionalAdmissionRequest) =>
   axios.post('/v1/students/conditional', data)
 
-export const finalAdmission = (pushId: string) =>
-  axios.post(`/v1/admissions/final/${pushId}`)
-
-export const revokeAdmission = (pushId: string) =>
-  axios.post(`/v1/admissions/revoke/${pushId}`)
-
 export const batchReject = (pushIds: string[]) =>
   axios.post('/v1/students/batch-reject', { pushIds })
+
+export const searchStudents = (keyword: string) =>
+  axios.get<Result<Student[]>>('/v1/students/search', { params: { keyword } })
+
+export const getTimeline = (pushId: string) =>
+  axios.get<Result<any[]>>(`/v1/students/${pushId}/timeline`)
+
+export const finalizeAdmission = (pushId: string) =>
+  axios.post('/v1/students/finalize', { pushId })
+
+export const revokeAdmission = (pushId: string) =>
+  axios.post('/v1/students/revoke', { pushId })
+
+export const receiveMaterial = (pushId: string, note?: string) =>
+  axios.post('/v1/checkins/material-receive', { pushId, note })
+
+export const confirmCheckin = (pushId: string, note?: string) =>
+  axios.post('/v1/checkins/checkin', { pushId, note })

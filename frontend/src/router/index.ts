@@ -40,13 +40,13 @@ const routes: RouteRecordRaw[] = [
         path: '/students',
         name: 'StudentList',
         component: () => import('@/views/school/StudentList.vue'),
-        meta: { title: '考生列表', roles: ['SCHOOL_ADMIN', 'SCHOOL_STAFF'] },
+        meta: { title: '考生列表', roles: ['SCHOOL_ADMIN', 'SCHOOL_STAFF', 'OP_ADMIN'] },
       },
       {
         path: '/students/:id',
         name: 'StudentDetail',
         component: () => import('@/views/school/StudentDetail.vue'),
-        meta: { title: '考生详情', roles: ['SCHOOL_ADMIN', 'SCHOOL_STAFF'] },
+        meta: { title: '考生详情', roles: ['SCHOOL_ADMIN', 'SCHOOL_STAFF', 'OP_ADMIN'] },
       },
       {
         path: '/majors',
@@ -100,7 +100,14 @@ const routes: RouteRecordRaw[] = [
         path: '/roles',
         name: 'RoleManage',
         component: () => import('@/views/admin/RoleManage.vue'),
-        meta: { title: '角色管理', roles: ['OP_ADMIN'] },
+        meta: { title: '角色权限', roles: ['OP_ADMIN'] },
+      },
+      {
+        path: '/admin/audit-logs',
+        name: 'AuditLogList',
+        component: () => import('@/views/admin/AuditLogList.vue'),
+        meta: { title: '操作日志', roles: ['OP_ADMIN'] },
+
       },
       {
         path: '/notifications',

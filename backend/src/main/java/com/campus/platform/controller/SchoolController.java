@@ -68,6 +68,13 @@ public class SchoolController {
         ));
     }
 
+    @Operation(summary = "获取院校详情")
+    @GetMapping("/{schoolId}")
+    public Result<School> getById(@PathVariable UUID schoolId) {
+        return Result.ok(schoolRepository.findById(schoolId)
+                .orElseThrow(() -> new RuntimeException("院校不存在")));
+    }
+
     @Operation(summary = "编辑院校")
     @PutMapping("/{schoolId}")
     public Result<Void> update(@PathVariable UUID schoolId, @RequestBody @Valid UpdateSchoolRequest req) {

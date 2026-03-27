@@ -16,8 +16,8 @@ import java.util.UUID;
 public class Account extends BaseEntity {
 
     /** 使用 @TableId(value="account_id") 指定列名，避免 @TableField 与 @TableId 冲突 */
-    @TableId(type = IdType.ASSIGN_ID, value = "account_id")
-    private String accountId;
+    @TableId(type = IdType.ASSIGN_UUID, value = "account_id")
+    private UUID accountId;
 
     private String username;
 

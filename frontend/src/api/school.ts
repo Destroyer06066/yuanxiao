@@ -39,6 +39,9 @@ export interface CreateSchoolRequest {
 
 export type UpdateSchoolRequest = CreateSchoolRequest
 
+export const getSchoolById = (schoolId: string) =>
+  axios.get<Result<School>>(`/v1/admin/schools/${schoolId}`)
+
 export const getSchools = (params?: SchoolQuery) =>
   axios.get<Result<PageResult<School>>>('/v1/admin/schools', { params })
 

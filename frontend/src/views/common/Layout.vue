@@ -18,55 +18,114 @@
           <template #title>首页</template>
         </el-menu-item>
 
-        <el-menu-item v-if="authStore.isOpAdmin" index="/admin/schools">
-          <el-icon><OfficeBuilding /></el-icon>
-          <template #title>院校管理</template>
-        </el-menu-item>
+        <!-- OP_ADMIN 分组菜单 -->
+        <template v-if="authStore.isOpAdmin">
+          <el-sub-menu index="admission">
+            <template #title><el-icon><TrendCharts /></el-icon><span>招生管理</span></template>
+            <el-menu-item index="/students">
+              <el-icon><User /></el-icon>
+              <template #title>考生列表</template>
+            </el-menu-item>
+            <el-menu-item index="/supplement">
+              <el-icon><RefreshRight /></el-icon>
+              <template #title>补录管理</template>
+            </el-menu-item>
+            <el-menu-item index="/statistics">
+              <el-icon><DataBoard /></el-icon>
+              <template #title>数据统计</template>
+            </el-menu-item>
+          </el-sub-menu>
 
-        <el-menu-item index="/students">
-          <el-icon><User /></el-icon>
-          <template #title>考生列表</template>
-        </el-menu-item>
+          <el-sub-menu index="school-mgmt">
+            <template #title><el-icon><OfficeBuilding /></el-icon><span>院校管理</span></template>
+            <el-menu-item index="/admin/schools">
+              <el-icon><OfficeBuilding /></el-icon>
+              <template #title>院校列表</template>
+            </el-menu-item>
+            <el-menu-item index="/accounts">
+              <el-icon><Avatar /></el-icon>
+              <template #title>账号管理</template>
+            </el-menu-item>
+          </el-sub-menu>
 
-        <el-menu-item index="/majors">
-          <el-icon><Reading /></el-icon>
-          <template #title>专业配置</template>
-        </el-menu-item>
+          <el-sub-menu index="system">
+            <template #title><el-icon><Setting /></el-icon><span>系统</span></template>
+            <el-menu-item index="/admin/audit-logs">
+              <el-icon><Document /></el-icon>
+              <template #title>操作日志</template>
+            </el-menu-item>
+            <el-menu-item index="/notifications">
+              <el-icon><Bell /></el-icon>
+              <template #title>站内通知</template>
+            </el-menu-item>
+          </el-sub-menu>
+        </template>
 
-        <el-menu-item index="/quota">
-          <el-icon><DataLine /></el-icon>
-          <template #title>名额管理</template>
-        </el-menu-item>
+        <!-- SCHOOL_ADMIN / STAFF 分组菜单 -->
+        <template v-else>
+          <el-sub-menu index="admission">
+            <template #title><el-icon><TrendCharts /></el-icon><span>招生管理</span></template>
+            <el-menu-item index="/students">
+              <el-icon><User /></el-icon>
+              <template #title>考生列表</template>
+            </el-menu-item>
+            <el-menu-item index="/checkin">
+              <el-icon><Check /></el-icon>
+              <template #title>报到管理</template>
+            </el-menu-item>
+            <el-menu-item index="/supplement">
+              <el-icon><RefreshRight /></el-icon>
+              <template #title>补录管理</template>
+            </el-menu-item>
+          </el-sub-menu>
 
-        <el-menu-item v-if="authStore.isOpAdmin || true" index="/supplement">
-          <el-icon><RefreshRight /></el-icon>
-          <template #title>补录管理</template>
-        </el-menu-item>
+          <el-sub-menu index="config">
+            <template #title><el-icon><Reading /></el-icon><span>配置管理</span></template>
+            <el-menu-item index="/majors">
+              <el-icon><Reading /></el-icon>
+              <template #title>专业配置</template>
+            </el-menu-item>
+            <el-menu-item index="/quota">
+              <el-icon><DataLine /></el-icon>
+              <template #title>名额管理</template>
+            </el-menu-item>
+          </el-sub-menu>
 
-        <el-menu-item index="/verification">
-          <el-icon><Stamp /></el-icon>
-          <template #title>成绩核验</template>
-        </el-menu-item>
+          <el-sub-menu index="data">
+            <template #title><el-icon><DataBoard /></el-icon><span>数据</span></template>
+            <el-menu-item index="/statistics">
+              <el-icon><DataBoard /></el-icon>
+              <template #title>数据统计</template>
+            </el-menu-item>
+            <el-menu-item index="/verification">
+              <el-icon><Stamp /></el-icon>
+              <template #title>成绩核验</template>
+            </el-menu-item>
+          </el-sub-menu>
 
-        <el-menu-item index="/checkin">
-          <el-icon><Check /></el-icon>
-          <template #title>报到管理</template>
-        </el-menu-item>
+          <!-- OP_ADMIN 专属菜单 -->
+          <el-menu-item v-if="authStore.isOpAdmin" index="/accounts">
+            <el-icon><Avatar /></el-icon>
+            <template #title>账号管理</template>
+          </el-menu-item>
+          <el-menu-item v-if="authStore.isOpAdmin" index="/roles">
+            <el-icon><Key /></el-icon>
+            <template #title>角色管理</template>
+          </el-menu-item>
 
-        <el-menu-item index="/statistics">
-          <el-icon><DataBoard /></el-icon>
-          <template #title>数据统计</template>
-        </el-menu-item>
+          <!-- SCHOOL_ADMIN 系统菜单 -->
+          <el-sub-menu v-if="authStore.role === 'SCHOOL_ADMIN'" index="school-system">
+            <template #title><el-icon><Setting /></el-icon><span>系统</span></template>
+            <el-menu-item index="/accounts">
+              <el-icon><Avatar /></el-icon>
+              <template #title>账号管理</template>
+            </el-menu-item>
+            <el-menu-item index="/notifications">
+              <el-icon><Bell /></el-icon>
+              <template #title>站内通知</template>
+            </el-menu-item>
+          </el-sub-menu>
 
-        <el-menu-item v-if="authStore.isOpAdmin" index="/accounts">
-          <el-icon><Avatar /></el-icon>
-          <template #title>账号管理</template>
-        </el-menu-item>
-
-        <el-menu-item v-if="authStore.isOpAdmin" index="/roles">
-          <el-icon><Key /></el-icon>
-          <template #title>角色管理</template>
-        </el-menu-item>
       </el-menu>
     </el-aside>
 
@@ -77,6 +136,39 @@
         </el-icon>
 
         <div class="topbar-right">
+          <!-- 全局考生搜索 -->
+          <div class="global-search">
+            <el-select
+              v-model="searchKeyword"
+              filterable
+              remote
+              reserve-keyword
+              placeholder="搜索考生..."
+              :remote-method="handleSearch"
+              :loading="searchLoading"
+              size="small"
+              style="width: 240px"
+              @change="handleSearchSelect"
+              clearable
+              @clear="searchResults = []"
+            >
+              <el-option
+                v-for="item in searchResults"
+                :key="item.pushId"
+                :label="item.candidateName"
+                :value="item.pushId"
+              >
+                <span style="float:left">{{ item.candidateName }}</span>
+                <span style="float:right; color:#999; font-size:12px; margin-right:8px">
+                  {{ item.schoolName || '' }}
+                </span>
+                <span style="float:right; margin-right:8px">
+                  <el-tag size="small" :class="'status-tag ' + item.status">{{ item.statusDesc }}</el-tag>
+                </span>
+              </el-option>
+            </el-select>
+          </div>
+
           <el-badge :value="unreadCount" :hidden="unreadCount === 0" class="notif-badge">
             <el-icon size="20" @click="router.push('/notifications')">
               <Bell />
@@ -113,11 +205,13 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notification'
+import { searchStudents } from '@/api/student'
 import {
   HomeFilled, OfficeBuilding, User, Reading,
   DataLine, RefreshRight, Stamp, Check,
   DataBoard, Avatar, Bell, Expand, Fold,
-  ArrowDown, SwitchButton, School
+  ArrowDown, SwitchButton, School,
+  TrendCharts, Setting, Document
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -127,6 +221,36 @@ const notifStore = useNotificationStore()
 
 const isCollapse = ref(false)
 const unreadCount = computed(() => notifStore.unreadCount)
+
+// 全局搜索
+const searchKeyword = ref('')
+const searchResults = ref<any[]>([])
+const searchLoading = ref(false)
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+
+async function handleSearch(query: string) {
+  if (!query || query.length < 2) {
+    searchResults.value = []
+    return
+  }
+  searchLoading.value = true
+  try {
+    const res = await searchStudents(query)
+    searchResults.value = res.data.data || []
+  } catch {
+    searchResults.value = []
+  } finally {
+    searchLoading.value = false
+  }
+}
+
+function handleSearchSelect(pushId: string) {
+  if (pushId) {
+    router.push(`/students/${pushId}`)
+    searchKeyword.value = ''
+    searchResults.value = []
+  }
+}
 
 const activeMenu = computed(() => route.path)
 
@@ -185,10 +309,18 @@ function handleCommand(cmd: string) {
     border-right: none;
     background: transparent;
 
-    :deep(.el-menu-item) {
+    :deep(.el-menu-item),
+    :deep(.el-sub-menu__title) {
       color: #bfcbd9;
       &:hover { background: #263445; color: #fff; }
-      &.is-active { background: #263445; color: #409eff; }
+    }
+    :deep(.el-menu-item.is-active) {
+      background: #263445;
+      color: #409eff;
+    }
+    :deep(.el-sub-menu .el-menu-item.is-active) {
+      background: #263445;
+      color: #409eff;
     }
   }
 }
@@ -213,6 +345,8 @@ function handleCommand(cmd: string) {
     display: flex;
     align-items: center;
     gap: 16px;
+
+    .global-search { display: flex; align-items: center; }
 
     .notif-badge { cursor: pointer; }
 

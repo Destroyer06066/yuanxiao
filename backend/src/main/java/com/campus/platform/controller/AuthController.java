@@ -119,7 +119,7 @@ public class AuthController {
                 .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND, "账号不存在"));
         String newHash = passwordEncoder.encode(req.getNewPassword());
         redisService.deleteSmsCode(req.getUsername());
-        accountRepository.updatePassword(UUID.fromString(account.getAccountId()), newHash);
+        accountRepository.updatePassword(account.getAccountId(), newHash);
         return Result.ok();
     }
 

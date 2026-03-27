@@ -73,4 +73,10 @@ public class CandidatePush extends BaseEntity {
 
     @TableField("operator_id")
     private UUID operatorId;
+
+    // JOIN 扩展字段（非数据库列）
+    @TableField(exist = false) private String schoolName;
+    @TableField(exist = false) private String majorName;
+    @TableField(exist = false) private String admissionMajorName;
+    @TableField(exist = false) private String operatorName;
 }

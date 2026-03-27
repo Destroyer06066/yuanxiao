@@ -30,7 +30,7 @@ public class StatisticsController {
     @Operation(summary = "月度录取趋势")
     @GetMapping("/statistics/trend")
     public Result<List<Map<String, Object>>> getTrend(
-            @RequestParam(required = false, defaultValue = "0") UUID schoolId,
+            @RequestParam(required = false) UUID schoolId,
             @RequestParam(required = false, defaultValue = "0") int year) {
         // year=0 表示当前年份
         if (year == 0) year = java.time.LocalDate.now().getYear();
@@ -54,5 +54,33 @@ public class StatisticsController {
             @RequestParam(required = false, defaultValue = "10") int limit) {
         UUID schoolId = SecurityContext.isOpAdmin() ? null : SecurityContext.getSchoolId();
         return Result.ok(statisticsService.getMajorRanking(schoolId, limit));
+    }
+
+    @Operation(summary = "各校录取进度排行（OP_ADMIN）")
+    @GetMapping("/statistics/school-progress")
+    public Result<List<Map<String, Object>>> getSchoolProgress() {
+        return Result.ok(statisticsService.getSchoolProgress());
+    }
+
+    @Operation(summary = "异常提醒")
+    @GetMapping("/statistics/alerts")
+    public Result<Map<String, Object>> getAlerts() {
+        UUID schoolId = SecurityContext.isOpAdmin() ? null : SecurityContext.getSchoolId();
+        return Result.ok(statisticsService.getAlerts(schoolId));
+    }
+
+    @Operation(summary = "近期操作动态")
+    @GetMapping("/statistics/recent-operations")
+    public Result<List<Map<String, Object>>> getRecentOperations(
+            @RequestParam(required = false, defaultValue = "20") int limit) {
+        UUID schoolId = SecurityContext.isOpAdmin() ? null : SecurityContext.getSchoolId();
+        return Result.ok(statisticsService.getRecentOperations(schoolId, limit));
+    }
+
+    @Operation(summary = "名额使用概览（SCHOOL）")
+    @GetMapping("/statistics/quota-usage")
+    public Result<List<Map<String, Object>>> getQuotaUsage() {
+        UUID schoolId = SecurityContext.isOpAdmin() ? null : SecurityContext.getSchoolId();
+        return Result.ok(statisticsService.getQuotaUsage(schoolId));
     }
 }

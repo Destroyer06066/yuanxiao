@@ -4,6 +4,16 @@ server:
 spring:
   application:
     name: campus-mock-server
+  web:
+    resources:
+      static-locations: classpath:/static/
+
+cors:
+  allowed-origins: http://localhost:5174,http://localhost:8081
+
+integration:
+  campus-backend:
+    base-url: http://localhost:8080
 
 logging:
   level:

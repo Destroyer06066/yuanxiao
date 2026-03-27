@@ -122,6 +122,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { Plus, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import {
+  getSchoolById,
   getSchools,
   createSchool,
   updateSchool,
@@ -232,20 +233,27 @@ function openCreateDialog() {
   dialogVisible.value = true
 }
 
-function openEditDialog(row: School) {
+async function openEditDialog(row: School) {
   isEdit.value = true
   editingId.value = row.schoolId
-  Object.assign(form, {
-    schoolName: row.schoolName,
-    schoolShortName: row.schoolShortName,
-    province: row.province,
-    schoolType: row.schoolType,
-    contactName: row.contactName,
-    contactPhone: row.contactPhone,
-    contactEmail: row.contactEmail,
-    website: row.website || '',
-    remark: row.remark || '',
-  })
+  // Fetch fresh data from backend to ensure reactive form has latest values
+  try {
+    const res = await getSchoolById(row.schoolId)
+    Object.assign(form, {
+      schoolName: res.data.data.schoolName,
+      schoolShortName: res.data.data.schoolShortName,
+      province: res.data.data.province,
+      schoolType: res.data.data.schoolType,
+      contactName: res.data.data.contactName,
+      contactPhone: res.data.data.contactPhone,
+      contactEmail: res.data.data.contactEmail,
+      website: res.data.data.website || '',
+      remark: res.data.data.remark || '',
+    })
+  } catch {
+    ElMessage.error('加载院校信息失败')
+    return
+  }
   dialogVisible.value = true
 }
 

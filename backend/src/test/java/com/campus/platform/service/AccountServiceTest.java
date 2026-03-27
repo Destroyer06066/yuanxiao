@@ -48,7 +48,7 @@ class AccountServiceTest {
     @BeforeEach
     void setUp() {
         activeAccount = new Account();
-        activeAccount.setAccountId(UUID.randomUUID().toString());
+        activeAccount.setAccountId(UUID.randomUUID());
         activeAccount.setUsername("test_user");
         activeAccount.setPasswordHash("$2a$10$hashedpassword");
         activeAccount.setRole(AccountRole.SCHOOL_ADMIN.name());
@@ -247,7 +247,7 @@ class AccountServiceTest {
             when(passwordEncoder.encode(anyString())).thenReturn("$2a$10$hashed");
             doAnswer(invocation -> {
                 Account a = invocation.getArgument(0);
-                a.setAccountId(UUID.randomUUID().toString());
+                a.setAccountId(UUID.randomUUID());
                 return 1;
             }).when(accountRepository).insert(any(Account.class));
             String password = accountService.createSchoolAdmin(schoolId, "blcu_admin",

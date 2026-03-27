@@ -10,13 +10,28 @@
     <!-- 轮次卡片 -->
     <el-row :gutter="16" class="round-cards">
       <el-col :span="8" v-for="round in rounds" :key="round.roundId">
-        <el-card class="round-card" :class="round.status">
+        <el-card class="round-card" :class="round.status" @click="goToStudents(round)">
           <template #header>
             <div class="round-header">
               <span class="round-name">第 {{ round.roundNumber }} 轮补录</span>
               <el-tag :type="statusType(round.status)" size="small">{{ statusText(round.status) }}</el-tag>
             </div>
           </template>
+          <!-- 统计数字 -->
+          <div class="round-stats">
+            <div class="stat-item">
+              <div class="stat-val">{{ round.pushedCount || 0 }}</div>
+              <div class="stat-lbl">推送</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-val">{{ round.admittedCount || 0 }}</div>
+              <div class="stat-lbl">已录取</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-val">{{ round.confirmedCount || 0 }}</div>
+              <div class="stat-lbl">已确认</div>
+            </div>
+          </div>
           <div class="round-body">
             <div class="round-time">
               <el-icon><Clock /></el-icon>
@@ -82,12 +97,14 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { Plus, Clock } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import axios from '@/api/axios'
 import dayjs from 'dayjs'
 
+const router = useRouter()
 const authStore = useAuthStore()
 
 const rounds = ref<any[]>([])
@@ -101,7 +118,7 @@ const createForm = reactive({
 })
 
 async function fetchRounds() {
-  const res = await axios.get('/api/v1/supplement/rounds')
+  const res = await axios.get('/v1/supplement/rounds')
   rounds.value = res.data.data || []
 }
 
@@ -132,7 +149,7 @@ async function handleCreate() {
   }
   submitting.value = true
   try {
-    await axios.post('/api/v1/supplement/rounds', createForm)
+    await axios.post('/v1/supplement/rounds', createForm)
     ElMessage.success('创建成功')
     createDialogVisible.value = false
     fetchRounds()
@@ -143,16 +160,20 @@ async function handleCreate() {
 
 async function activateRound(round: any) {
   await ElMessageBox.confirm(`确认开启第 ${round.roundNumber} 轮补录？`)
-  await axios.patch(`/api/v1/supplement/rounds/${round.roundId}`, { status: 'ACTIVE' })
+  await axios.patch(`/v1/supplement/rounds/${round.roundId}`, { status: 'ACTIVE' })
   ElMessage.success('已开启')
   fetchRounds()
 }
 
 async function closeRound(round: any) {
   await ElMessageBox.confirm(`确认关闭第 ${round.roundNumber} 轮补录？`)
-  await axios.patch(`/api/v1/supplement/rounds/${round.roundId}`, { status: 'CLOSED' })
+  await axios.patch(`/v1/supplement/rounds/${round.roundId}`, { status: 'CLOSED' })
   ElMessage.success('已关闭')
   fetchRounds()
+}
+
+function goToStudents(round: any) {
+  router.push(`/students?round=${round.roundNumber}`)
 }
 
 onMounted(fetchRounds)
@@ -162,6 +183,10 @@ onMounted(fetchRounds)
 .round-cards { margin-top: 8px; }
 
 .round-card {
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  &:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+
   .round-header {
     display: flex;
     justify-content: space-between;
@@ -170,9 +195,37 @@ onMounted(fetchRounds)
     .round-name { font-weight: 600; }
   }
 
-  .round-body {
+  .round-stats {
+    display: flex;
+    gap: 0;
     margin-bottom: 12px;
+    border: 1px solid #ebeef5;
+    border-radius: 8px;
+    overflow: hidden;
 
+    .stat-item {
+      flex: 1;
+      text-align: center;
+      padding: 10px 0;
+      background: #fafafa;
+      border-right: 1px solid #ebeef5;
+      &:last-child { border-right: none; }
+
+      .stat-val {
+        font-size: 20px;
+        font-weight: 700;
+        color: #303133;
+        line-height: 1;
+      }
+      .stat-lbl {
+        font-size: 11px;
+        color: #909399;
+        margin-top: 4px;
+      }
+    }
+  }
+
+  .round-body {
     .round-time {
       display: flex;
       align-items: center;

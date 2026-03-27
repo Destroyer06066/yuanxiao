@@ -37,6 +37,8 @@ public class AdmissionService {
     private final AccountRepository accountRepository;
     private final RegistrationPlatformClient registrationPlatformClient;
     private final RedisService redisService;
+    private final OperationLogService operationLogService;
+    private final NotificationService notificationService;
 
     /**
      * 直接录取
@@ -95,6 +97,10 @@ public class AdmissionService {
                     majorRepository.findById(majorId).map(Major::getMajorName).orElse(""),
                     conditionDesc, conditionDeadline.toString());
 
+            String majorName = majorRepository.findById(majorId).map(Major::getMajorName).orElse("");
+            operationLogService.log(pushId, "CONDITIONAL", operatorId,
+                    "有条件录取: " + majorName + "，条件: " + conditionDesc + "，截止: " + conditionDeadline);
+
             log.info("有条件录取: pushId={}, majorId={}", pushId, majorId);
 
         } finally {
@@ -131,6 +137,19 @@ public class AdmissionService {
                 majorRepository.findById(push.getAdmissionMajorId())
                         .map(Major::getMajorName).orElse(""), "");
 
+        operationLogService.log(pushId, "FINALIZE", operatorId, "条件满足，转为正式录取");
+
+        // 站内通知
+        String majorName = majorRepository.findById(push.getAdmissionMajorId())
+                .map(Major::getMajorName).orElse("");
+        notificationService.notifySchoolAdmins(
+                push.getSchoolId(), pushId,
+                "条件录取已确认",
+                String.format("考生 %s 的条件已满足，正式录取至 %s", push.getCandidateName(), majorName));
+
+        // 名额超 90% 预警
+        optQuota.ifPresent(q -> checkQuotaOver90Alert(q, majorName));
+
         log.info("终裁录取: pushId={}", pushId);
     }
 
@@ -163,6 +182,7 @@ public class AdmissionService {
         push.setOperatedAt(Instant.now());
         candidatePushRepository.updateById(push);
 
+        operationLogService.log(pushId, "REVOKE", operatorId, "撤销录取");
         log.info("撤销录取: pushId={}", pushId);
     }
 
@@ -186,6 +206,9 @@ public class AdmissionService {
         registrationPlatformClient.sendRejectNotify(
                 push.getSchoolId(), push.getCandidateId(), push.getCandidateName(), reason);
 
+        operationLogService.log(pushId, "REJECT", operatorId, "拒绝" + (reason != null ? "，原因: " + reason : ""));
+
+        // 站内通知（记录在操作日志中）
         log.info("拒绝录取: pushId={}, reason={}", pushId, reason);
     }
 
@@ -227,6 +250,18 @@ public class AdmissionService {
         registrationPlatformClient.sendAdmissionNotify(
                 push.getSchoolId(), push.getCandidateId(), push.getCandidateName(),
                 majorRepository.findById(majorId).map(Major::getMajorName).orElse(""), remark != null ? remark : "");
+
+        String majorName = majorRepository.findById(majorId).map(Major::getMajorName).orElse("");
+        operationLogService.log(pushId, "ADMIT", operatorId, "录取专业: " + majorName + (remark != null ? "，备注: " + remark : ""));
+
+        // 站内通知
+        notificationService.notifySchoolAdmins(
+                push.getSchoolId(), pushId,
+                "考生录取通知",
+                String.format("考生 %s 已被录取至 %s", push.getCandidateName(), majorName));
+
+        // 名额超 90% 预警
+        checkQuotaOver90Alert(quota, majorName);
 
         log.info("直接录取: pushId={}, majorId={}", pushId, majorId);
     }
@@ -277,5 +312,17 @@ public class AdmissionService {
             quota.setReservedCount(quota.getReservedCount() - 1);
         }
         admissionQuotaRepository.updateById(quota);
+    }
+
+    /**
+     * 名额超 90% 预警
+     */
+    private void checkQuotaOver90Alert(AdmissionQuota quota, String majorName) {
+        int total = quota.getTotalQuota() != null ? quota.getTotalQuota() : 0;
+        int admitted = quota.getAdmittedCount() != null ? quota.getAdmittedCount() : 0;
+        int reserved = quota.getReservedCount() != null ? quota.getReservedCount() : 0;
+        if (total > 0 && (double) (admitted + reserved) / total >= 0.9) {
+            notificationService.onQuotaOver90(quota.getSchoolId(), majorName, admitted + reserved, total);
+        }
     }
 }

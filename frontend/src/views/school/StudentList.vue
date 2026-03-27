@@ -16,6 +16,13 @@
     <!-- 筛选区 -->
     <el-card class="filter-card">
       <el-form :inline="true" :model="query">
+        <!-- 院校筛选（OP_ADMIN 可见） -->
+        <el-form-item v-if="authStore.isOpAdmin" label="推送院校">
+          <el-select v-model="query.schoolId" placeholder="全部院校" clearable style="width: 180px">
+            <el-option v-for="s in schoolOptions" :key="s.schoolId" :label="s.schoolName" :value="s.schoolId" />
+          </el-select>
+        </el-form-item>
+
         <el-form-item label="状态">
           <el-select v-model="query.status" multiple collapse-tags placeholder="全部状态" clearable>
             <el-option v-for="s in statusOptions" :key="s.value" :label="s.label" :value="s.value" />
@@ -43,11 +50,34 @@
           />
         </el-form-item>
 
+        <el-form-item label="推送轮次">
+          <el-input-number
+            v-model="query.round"
+            :min="0"
+            placeholder="轮次号"
+            style="width: 120px"
+            clearable
+          />
+        </el-form-item>
+
         <el-form-item>
           <el-button type="primary" @click="search">查询</el-button>
           <el-button @click="reset">重置</el-button>
         </el-form-item>
       </el-form>
+
+      <!-- 快捷状态标签 -->
+      <div class="quick-status">
+        <span class="quick-label">快捷筛选：</span>
+        <el-check-tag
+          v-for="s in quickStatusTags"
+          :key="s.value"
+          :checked="query.status?.length === 1 && query.status[0] === s.value"
+          @change="toggleQuickStatus(s.value)"
+        >
+          {{ s.label }}
+        </el-check-tag>
+      </div>
     </el-card>
 
     <!-- 列表 -->
@@ -60,6 +90,9 @@
         @selection-change="handleSelection"
       >
         <el-table-column type="selection" width="55" />
+
+        <!-- 院校列（仅 OP_ADMIN 可见） -->
+        <el-table-column v-if="authStore.isOpAdmin" prop="schoolName" label="推送院校" width="160" />
 
         <el-table-column prop="candidateName" label="姓名" width="120" />
         <el-table-column prop="nationality" label="国籍" width="100" />
@@ -77,33 +110,32 @@
           </template>
         </el-table-column>
         <el-table-column prop="admissionMajor" label="录取专业" width="130" show-overflow-tooltip />
+        <el-table-column v-if="hasConditional" label="条件截止日" width="130">
+          <template #default="{ row }">
+            <span v-if="row.status === 'CONDITIONAL'" class="deadline-text">
+              {{ formatDeadline(row.conditionDeadline) }}
+            </span>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="pushedAt" label="推送时间" width="160" sortable />
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="$router.push(`/students/${row.pushId}`)">
               详情
             </el-button>
-            <el-button
-              v-if="row.status === 'PENDING'"
-              type="success" link
-              @click="openAdmitDialog(row)"
-            >
-              录取
-            </el-button>
-            <el-button
-              v-if="row.status === 'PENDING'"
-              type="warning" link
-              @click="openConditionalDialog(row)"
-            >
-              有条件录取
-            </el-button>
-            <el-button
-              v-if="row.status === 'PENDING'"
-              type="danger" link
-              @click="handleReject(row)"
-            >
-              拒绝
-            </el-button>
+            <!-- 操作按钮：非 OP_ADMIN 可见 -->
+            <template v-if="!authStore.isOpAdmin">
+              <el-button v-if="row.status === 'PENDING'" type="success" link @click="openAdmitDialog(row)">
+                录取
+              </el-button>
+              <el-button v-if="row.status === 'PENDING'" type="warning" link @click="openConditionalDialog(row)">
+                有条件录取
+              </el-button>
+              <el-button v-if="row.status === 'PENDING'" type="danger" link @click="handleReject(row)">
+                拒绝
+              </el-button>
+            </template>
           </template>
         </el-table-column>
       </el-table>
@@ -188,11 +220,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download } from '@element-plus/icons-vue'
+import { useAuthStore } from '@/stores/auth'
 import { queryStudents, type StudentQuery, type Student, directAdmission, conditionalAdmission, batchReject } from '@/api/student'
+import { getSchools } from '@/api/school'
 
+const route = useRoute()
+const authStore = useAuthStore()
 const loading = ref(false)
 const tableData = ref<Student[]>([])
 const total = ref(0)
@@ -201,12 +238,16 @@ const tableRef = ref()
 
 const dateRange = ref<string[]>([])
 
-const query = reactive<StudentQuery>({
+// 院校选项（OP_ADMIN 用）
+const schoolOptions = ref<any[]>([])
+
+const query = reactive<StudentQuery & { schoolId?: string; round?: number }>({
   status: [],
   page: 1,
   pageSize: 20,
   sort: 'pushedAt',
   order: 'DESC',
+  round: undefined,
 })
 
 const statusOptions = [
@@ -219,6 +260,40 @@ const statusOptions = [
   { value: 'REJECTED', label: '已拒绝' },
   { value: 'INVALIDATED', label: '录取已失效' },
 ]
+
+// 快捷状态标签
+const quickStatusTags = [
+  { value: 'PENDING', label: '待处理' },
+  { value: 'CONDITIONAL', label: '有条件录取' },
+  { value: 'ADMITTED', label: '已录取' },
+  { value: 'CONFIRMED', label: '已确认' },
+]
+
+const hasConditional = computed(() =>
+  tableData.value.some(row => row.status === 'CONDITIONAL')
+)
+
+function toggleQuickStatus(value: string) {
+  if (query.status?.length === 1 && query.status[0] === value) {
+    query.status = []
+  } else {
+    query.status = [value]
+  }
+  // 筛选 CONDITIONAL 时，按截止日期升序（最紧急排前）
+  if (value === 'CONDITIONAL') {
+    query.sort = 'conditionDeadline'
+    query.order = 'ASC'
+  } else {
+    query.sort = 'pushedAt'
+    query.order = 'DESC'
+  }
+  search()
+}
+
+function formatDeadline(iso: string) {
+  if (!iso) return '-'
+  return new Date(iso).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
+}
 
 const majorOptions = ref<any[]>([])
 
@@ -235,10 +310,18 @@ const condForm = reactive({ pushId: '', majorId: '', conditionDesc: '', conditio
 const rejectDialogVisible = ref(false)
 const rejectForm = reactive({ pushId: '', reason: '' })
 
+async function loadSchools() {
+  if (!authStore.isOpAdmin) return
+  try {
+    const res = await getSchools({ status: 'ACTIVE', pageSize: 500 })
+    schoolOptions.value = res.data.data.records
+  } catch { /* ignore */ }
+}
+
 async function search() {
   loading.value = true
   try {
-    const params = { ...query }
+    const params: any = { ...query }
     if (dateRange.value?.length === 2) {
       params.pushTimeStart = dateRange.value[0]
       params.pushTimeEnd = dateRange.value[1]
@@ -256,6 +339,8 @@ function reset() {
   query.minScore = undefined
   query.maxScore = undefined
   query.intentionKeyword = ''
+  query.schoolId = undefined
+  query.round = undefined
   dateRange.value = []
   search()
 }
@@ -341,24 +426,77 @@ async function handleBatchReject() {
   }
 }
 
-function handleExport() {
-  ElMessage.info('导出功能开发中')
+async function handleExport() {
+  try {
+    ElMessage.info('正在生成导出文件...')
+    const params: any = {}
+    if (query.status && query.status.length > 0) params.status = query.status
+    if (query.minScore != null) params.minScore = query.minScore
+    if (query.maxScore != null) params.maxScore = query.maxScore
+    if (query.intentionKeyword) params.intentionKeyword = query.intentionKeyword
+    if (query.nationality) params.nationality = query.nationality
+    if (query.schoolId) params.schoolId = query.schoolId
+    if (dateRange.value && dateRange.value.length === 2) {
+      params.pushTimeStart = dateRange.value[0]
+      params.pushTimeEnd = dateRange.value[1]
+    }
+    if (query.majorId) params.majorId = query.majorId
+    if (query.round != null) params.round = query.round
+
+    const res = await axios.get('/v1/students/export', {
+      params,
+      responseType: 'blob',
+    })
+    const blob = new Blob([res.data], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `考生列表_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.xlsx`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
+    ElMessage.success('导出成功')
+  } catch {
+    ElMessage.error('导出失败，请重试')
+  }
 }
 
-onMounted(search)
+onMounted(() => {
+  // 从 URL 参数读取轮次筛选（来自补录管理跳转）
+  const roundParam = route.query.round
+  if (roundParam) {
+    query.round = Number(roundParam)
+  }
+  loadSchools()
+  search()
+})
 </script>
 
 <style scoped lang="scss">
 .header-actions { display: flex; gap: 8px; }
-
 .filter-card { margin-bottom: 16px; }
-.table-card { }
+
+.quick-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #ebeef5;
+
+  .quick-label { font-size: 13px; color: #909399; }
+}
 
 .score-highlight {
   font-weight: 700;
   color: #409eff;
   font-size: 15px;
 }
+
+.deadline-text { color: #e6a23c; font-weight: 600; font-size: 13px; }
 
 .full-width { width: 100%; }
 

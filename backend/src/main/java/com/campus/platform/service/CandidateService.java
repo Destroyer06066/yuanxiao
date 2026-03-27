@@ -1,5 +1,6 @@
 package com.campus.platform.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.campus.platform.common.exception.BusinessException;
@@ -34,6 +35,8 @@ public class CandidateService {
     private final MajorRepository majorRepository;
     private final AccountRepository accountRepository;
     private final RegistrationPlatformClient registrationPlatformClient;
+    private final OperationLogService operationLogService;
+    private final NotificationService notificationService;
 
     /**
      * 接收报名平台推送的考生成绩
@@ -71,6 +74,7 @@ public class CandidateService {
             push.setOperatorId(null);
             candidatePushRepository.updateById(push);
             log.info("考生重新推送（重新开启）: candidateId={}", req.candidateId());
+            operationLogService.log(push.getPushId(), "PUSH", null, "重新推送（补录轮次: " + push.getPushRound() + "）");
         } else {
             push = new CandidatePush();
             push.setSchoolId(schoolId);
@@ -87,7 +91,13 @@ public class CandidateService {
             push.setPushedAt(Instant.now());
             push.setPushId(UUID.randomUUID());
             candidatePushRepository.insert(push);
+            operationLogService.log(push.getPushId(), "PUSH", null,
+                    "新推送，总分: " + (req.totalScore() != null ? req.totalScore() : "-") + "，轮次: " + push.getPushRound());
             log.info("新考生推送: candidateId={}, pushId={}", req.candidateId(), push.getPushId());
+
+            // 站内通知：通知该校 SCHOOL_ADMIN
+            notificationService.onCandidatePushed(
+                    schoolId, push.getPushId(), push.getCandidateName(), push.getTotalScore());
         }
 
         return push;
@@ -118,7 +128,14 @@ public class CandidateService {
                 push.setStatus(CandidateStatus.CONFIRMED.name());
                 push.setOperatedAt(Instant.now());
                 candidatePushRepository.updateById(push);
+                operationLogService.log(push.getPushId(), "CONFIRM", null, "考生确认录取");
                 log.info("考生确认本校录取: pushId={}", push.getPushId());
+
+                // 站内通知
+                String majorName = majorRepository.findById(push.getAdmissionMajorId())
+                        .map(Major::getMajorName).orElse("");
+                notificationService.onCandidateConfirmed(
+                        push.getSchoolId(), push.getPushId(), push.getCandidateName(), majorName);
             } else if (CandidateStatus.ADMITTED.name().equals(push.getStatus())) {
                 // 其他发出录取通知的院校 → 失效 + 名额释放
                 push.setStatus(CandidateStatus.INVALIDATED.name());
@@ -127,6 +144,7 @@ public class CandidateService {
 
                 // 释放名额
                 releaseQuota(push);
+                operationLogService.log(push.getPushId(), "INVALIDATE", null, "其他院校已确认，本校录取失效");
                 log.info("其他院校录取通知失效: pushId={}, schoolId={}", push.getPushId(), push.getSchoolId());
             }
         }
@@ -156,10 +174,31 @@ public class CandidateService {
         // 释放预占名额
         releaseQuota(push);
 
-        // 站内通知院校工作人员
-        // notificationService.notifyAdmins(...)
+        // 站内通知院校 + OP_ADMIN
+        notificationService.onConditionExpired(push.getSchoolId(), push.getPushId(), push.getCandidateName());
 
+        operationLogService.log(push.getPushId(), "CONDITION_EXPIRED", null, "条件到期，自动恢复为待处理");
         log.info("有条件录取到期自动恢复: pushId={}", push.getPushId());
+    }
+
+    /**
+     * 全局搜索考生（按姓名、证件号、候选人ID）
+     */
+    public List<CandidatePush> searchCandidates(UUID schoolId, String keyword) {
+        LambdaQueryWrapper<CandidatePush> q = new LambdaQueryWrapper<>();
+        if (schoolId != null) {
+            q.eq(CandidatePush::getSchoolId, schoolId);
+        }
+        String kw = "%" + keyword + "%";
+        q.and(w -> w
+                .like(CandidatePush::getCandidateName, keyword)
+                .or()
+                .like(CandidatePush::getIdNumber, keyword)
+                .or()
+                .like(CandidatePush::getCandidateId, keyword))
+                .orderByDesc(CandidatePush::getPushedAt)
+                .last("LIMIT 20");
+        return candidatePushRepository.selectList(q);
     }
 
     /**
@@ -201,6 +240,26 @@ public class CandidateService {
         return candidatePushRepository.pageQuery(p, schoolId, status, minScore, maxScore,
                 intentionKeyword, nationality, pushTimeStart, pushTimeEnd,
                 majorId, round, sort, order);
+    }
+
+    /**
+     * 考生列表导出（全量，不分页）
+     */
+    public List<CandidatePush> queryCandidatesForExport(
+            UUID schoolId,
+            List<String> status,
+            Float minScore, Float maxScore,
+            String intentionKeyword,
+            String nationality,
+            Instant pushTimeStart, Instant pushTimeEnd,
+            UUID majorId, Integer round) {
+
+        return candidatePushRepository.selectForExport(
+                schoolId, status,
+                minScore != null ? new java.math.BigDecimal(minScore.toString()) : null,
+                maxScore != null ? new java.math.BigDecimal(maxScore.toString()) : null,
+                intentionKeyword, nationality,
+                pushTimeStart, pushTimeEnd, majorId, round);
     }
 
     /**

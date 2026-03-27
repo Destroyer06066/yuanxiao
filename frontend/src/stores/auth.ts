@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { login, getCurrentUser, logout } from '@/api/auth'
-import type { LoginRequest, UserInfo } from '@/api/auth'
+import type { LoginRequest, UserInfo, LoginResponse } from '@/api/auth'
 import router from '@/router'
 import { usePermissionStore } from './permission'
 
@@ -12,14 +12,16 @@ export const useAuthStore = defineStore('auth', () => {
   const role = computed(() => userInfo.value?.role || '')
   const schoolId = computed(() => userInfo.value?.schoolId || '')
   const realName = computed(() => userInfo.value?.realName || '')
+  const accountId = computed(() => userInfo.value?.accountId || '')
   const isOpAdmin = computed(() => role.value === 'OP_ADMIN')
 
   async function loginAction(form: LoginRequest) {
     const res = await login(form)
-    const data = res.data.data as LoginResponse
+    const data = res.data.data
     token.value = data.accessToken
     localStorage.setItem('access_token', data.accessToken)
-    userInfo.value = data
+    // login 响应不含 accountId/username，由 fetchUserInfo 补全
+    userInfo.value = data as unknown as UserInfo
     return data
   }
 
@@ -47,6 +49,7 @@ export const useAuthStore = defineStore('auth', () => {
     role,
     schoolId,
     realName,
+    accountId,
     isOpAdmin,
     loginAction,
     fetchUserInfo,

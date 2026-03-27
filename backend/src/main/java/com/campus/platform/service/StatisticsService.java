@@ -1,9 +1,9 @@
 package com.campus.platform.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.campus.platform.entity.CandidatePush;
+import com.campus.platform.entity.*;
 import com.campus.platform.entity.enums.CandidateStatus;
-import com.campus.platform.repository.CandidatePushRepository;
+import com.campus.platform.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,6 +21,10 @@ import java.util.stream.Collectors;
 public class StatisticsService {
 
     private final CandidatePushRepository candidatePushRepository;
+    private final SchoolRepository schoolRepository;
+    private final OperationLogRepository operationLogRepository;
+    private final AdmissionQuotaRepository admissionQuotaRepository;
+    private final MajorRepository majorRepository;
 
     /**
      * 返回 KPI 指标卡数据
@@ -118,6 +122,192 @@ public class StatisticsService {
             ));
         }
         return result;
+    }
+
+    /**
+     * 各校录取进度排行（OP_ADMIN）
+     */
+    public List<Map<String, Object>> getSchoolProgress() {
+        List<School> schools = schoolRepository.selectList(null);
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (School school : schools) {
+            UUID schoolId = school.getSchoolId();
+            long pushed = candidatePushRepository.selectCount(
+                    new LambdaQueryWrapper<CandidatePush>().eq(CandidatePush::getSchoolId, schoolId));
+            long admitted = candidatePushRepository.selectCount(
+                    new LambdaQueryWrapper<CandidatePush>()
+                            .eq(CandidatePush::getSchoolId, schoolId)
+                            .in(CandidatePush::getStatus,
+                                    CandidateStatus.ADMITTED.name(),
+                                    CandidateStatus.CONFIRMED.name(),
+                                    CandidateStatus.CHECKED_IN.name(),
+                                    CandidateStatus.MATERIAL_RECEIVED.name()));
+            long confirmed = candidatePushRepository.selectCount(
+                    new LambdaQueryWrapper<CandidatePush>()
+                            .eq(CandidatePush::getSchoolId, schoolId)
+                            .in(CandidatePush::getStatus,
+                                    CandidateStatus.CONFIRMED.name(),
+                                    CandidateStatus.CHECKED_IN.name(),
+                                    CandidateStatus.MATERIAL_RECEIVED.name()));
+            long checkedIn = candidatePushRepository.selectCount(
+                    new LambdaQueryWrapper<CandidatePush>()
+                            .eq(CandidatePush::getSchoolId, schoolId)
+                            .eq(CandidatePush::getStatus, CandidateStatus.CHECKED_IN.name()));
+
+            double rate = pushed > 0 ? (double) admitted / pushed * 100 : 0;
+
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("schoolId", schoolId);
+            row.put("schoolName", school.getSchoolName());
+            row.put("pushed", pushed);
+            row.put("admitted", admitted);
+            row.put("confirmed", confirmed);
+            row.put("checkedIn", checkedIn);
+            row.put("admissionRate", Math.round(rate * 10) / 10.0);
+            result.add(row);
+        }
+
+        // 按录取率排序
+        result.sort((a, b) -> Double.compare(
+                (Double) b.get("admissionRate"),
+                (Double) a.get("admissionRate")));
+        return result;
+    }
+
+    /**
+     * 异常提醒（OP_ADMIN / SCHOOL）
+     */
+    public Map<String, Object> getAlerts(UUID schoolId) {
+        Instant now = Instant.now();
+        Instant threeDaysLater = now.plus(java.time.Duration.ofDays(3));
+
+        // 1. 有条件录取即将到期（3天内）
+        LambdaQueryWrapper<CandidatePush> condQ = new LambdaQueryWrapper<>();
+        if (schoolId != null) condQ.eq(CandidatePush::getSchoolId, schoolId);
+        condQ.eq(CandidatePush::getStatus, CandidateStatus.CONDITIONAL.name());
+        condQ.isNotNull(CandidatePush::getConditionDeadline);
+        condQ.le(CandidatePush::getConditionDeadline, threeDaysLater);
+        long expiringSoon = candidatePushRepository.selectCount(condQ);
+
+        // 2. 名额使用超 90% 的专业
+        LambdaQueryWrapper<AdmissionQuota> quotaQ = new LambdaQueryWrapper<>();
+        if (schoolId != null) quotaQ.eq(AdmissionQuota::getSchoolId, schoolId);
+        List<AdmissionQuota> quotas = admissionQuotaRepository.selectList(quotaQ);
+        long over90Count = quotas.stream()
+                .filter(q -> {
+                    int total = q.getTotalQuota() != null ? q.getTotalQuota() : 0;
+                    int admitted = q.getAdmittedCount() != null ? q.getAdmittedCount() : 0;
+                    int reserved = q.getReservedCount() != null ? q.getReservedCount() : 0;
+                    return total > 0 && (double) (admitted + reserved) / total >= 0.9;
+                })
+                .count();
+
+        // 3. 今日新推送
+        Instant startOfDay = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant();
+        LambdaQueryWrapper<CandidatePush> todayQ = new LambdaQueryWrapper<>();
+        if (schoolId != null) todayQ.eq(CandidatePush::getSchoolId, schoolId);
+        todayQ.ge(CandidatePush::getPushedAt, startOfDay);
+        long todayPushed = candidatePushRepository.selectCount(todayQ);
+
+        return Map.of(
+                "conditionExpiringSoon", expiringSoon,
+                "quotaOver90", over90Count,
+                "todayPushed", todayPushed
+        );
+    }
+
+    /**
+     * 近期操作动态
+     */
+    public List<Map<String, Object>> getRecentOperations(UUID schoolId, int limit) {
+        List<OperationLog> logs = operationLogRepository.findRecent(limit);
+
+        // 收集 pushIds
+        List<UUID> pushIds = logs.stream().map(OperationLog::getPushId).filter(Objects::nonNull).distinct().toList();
+
+        // 批量查询考生信息和院校信息
+        final Map<UUID, CandidatePush> pushMapFinal;
+        Map<UUID, CandidatePush> tmpMap = new HashMap<>();
+        if (!pushIds.isEmpty()) {
+            List<CandidatePush> pushes = candidatePushRepository.selectList(
+                    new LambdaQueryWrapper<CandidatePush>()
+                            .in(CandidatePush::getPushId, pushIds)
+                            .select(CandidatePush::getPushId, CandidatePush::getSchoolId,
+                                    CandidatePush::getCandidateName));
+            tmpMap.putAll(pushes.stream().collect(Collectors.toMap(CandidatePush::getPushId, p -> p)));
+        }
+        pushMapFinal = Collections.unmodifiableMap(tmpMap);
+
+        final Map<UUID, String> schoolNameMapFinal;
+        boolean isOpAdmin = schoolId == null;
+        if (isOpAdmin) {
+            // OP_ADMIN 才需要查学校名
+            Map<UUID, String> tmp = schoolRepository.selectList(null).stream()
+                    .collect(Collectors.toMap(School::getSchoolId, School::getSchoolName));
+            schoolNameMapFinal = Collections.unmodifiableMap(tmp);
+        } else {
+            schoolNameMapFinal = Collections.emptyMap();
+        }
+
+        return logs.stream().map(log -> {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("logId", log.getLogId());
+            item.put("action", log.getAction());
+            item.put("operatorName", log.getOperatorName());
+            item.put("remark", log.getRemark());
+            item.put("createdAt", log.getCreatedAt());
+
+            CandidatePush push = pushMapFinal.get(log.getPushId());
+            if (push != null) {
+                item.put("candidateName", push.getCandidateName());
+                item.put("schoolId", push.getSchoolId());
+                item.put("schoolName",
+                        isOpAdmin ? schoolNameMapFinal.getOrDefault(push.getSchoolId(), "") : null);
+            }
+            return item;
+        }).collect(Collectors.toList());
+    }
+
+    /**
+     * 名额使用概览（SCHOOL Dashboard）
+     */
+    public List<Map<String, Object>> getQuotaUsage(UUID schoolId) {
+        LambdaQueryWrapper<AdmissionQuota> q = new LambdaQueryWrapper<>();
+        if (schoolId != null) q.eq(AdmissionQuota::getSchoolId, schoolId);
+        List<AdmissionQuota> quotas = admissionQuotaRepository.selectList(q);
+
+        // 批量查专业名
+        List<UUID> majorIds = quotas.stream()
+                .map(AdmissionQuota::getMajorId).filter(Objects::nonNull).distinct().toList();
+        final Map<UUID, String> majorNameMapFinal;
+        if (!majorIds.isEmpty()) {
+            Map<UUID, String> tmp = majorRepository.selectList(
+                    new LambdaQueryWrapper<Major>().in(Major::getMajorId, majorIds)
+                            .select(Major::getMajorId, Major::getMajorName))
+                    .stream().collect(Collectors.toMap(Major::getMajorId, Major::getMajorName));
+            majorNameMapFinal = Collections.unmodifiableMap(tmp);
+        } else {
+            majorNameMapFinal = Collections.emptyMap();
+        }
+
+        return quotas.stream().map(qt -> {
+            int total = qt.getTotalQuota() != null ? qt.getTotalQuota() : 0;
+            int admitted = qt.getAdmittedCount() != null ? qt.getAdmittedCount() : 0;
+            int reserved = qt.getReservedCount() != null ? qt.getReservedCount() : 0;
+            int used = admitted + reserved;
+            double usageRate = total > 0 ? (double) used / total * 100 : 0;
+
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("quotaId", qt.getQuotaId());
+            m.put("majorId", qt.getMajorId());
+            m.put("majorName", majorNameMapFinal.getOrDefault(qt.getMajorId(), "未知专业"));
+            m.put("totalQuota", total);
+            m.put("used", used);
+            m.put("remaining", total - used);
+            m.put("usageRate", Math.round(usageRate * 10) / 10.0);
+            return m;
+        }).collect(Collectors.toList());
     }
 
     /**
