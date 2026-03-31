@@ -25,13 +25,17 @@ public class RoleService {
     private final PermissionRepository permissionRepository;
     private final RolePermissionRepository rolePermissionRepository;
 
+    // 模块标签（第二级：和侧边栏菜单项对齐）
     private static final Map<String, String> MODULE_LABELS = Map.ofEntries(
             Map.entry("account", "账号管理"),
             Map.entry("major", "专业配置"),
             Map.entry("quota", "名额管理"),
             Map.entry("verification", "成绩核验"),
             Map.entry("checkin", "报到管理"),
-            Map.entry("report", "数据报表")
+            Map.entry("report", "数据统计"),
+            Map.entry("school", "院校列表"),
+            Map.entry("role", "角色管理"),
+            Map.entry("supplement", "补录管理")
     );
 
     private static final Set<String> RESTRICTED_PERMS = Set.of(
@@ -104,9 +108,6 @@ public class RoleService {
     public RoleDTO updateRolePermissions(UUID id, UpdateRolePermissionsRequest req) {
         Role role = roleRepository.selectById(id);
         if (role == null) throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "角色不存在");
-        if (Boolean.TRUE.equals(role.getIsPreset())) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "预设角色不可修改权限");
-        }
 
         rolePermissionRepository.deleteByRoleId(id);
 
@@ -159,7 +160,8 @@ public class RoleService {
         }
         List<PermissionDTO> perms = toDTO(role).getPermissions();
         return perms.stream()
-                .filter(PermissionDTO::getIsExplicit)
+                // 预设角色：isExplicit=false 但实际拥有权限；自定义角色：只看 isExplicit=true
+                .filter(p -> Boolean.TRUE.equals(p.getIsExplicit()) || Boolean.TRUE.equals(role.getIsPreset()))
                 .map(p -> p.getModule() + ":" + p.getAction())
                 .collect(Collectors.toList());
     }

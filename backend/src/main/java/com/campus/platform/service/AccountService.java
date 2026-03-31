@@ -22,8 +22,12 @@ import java.time.Duration;
 import java.time.Instant;
 import com.campus.platform.entity.School;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -35,6 +39,7 @@ public class AccountService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final RedisService redisService;
+    private final RoleService roleService;
 
     private static final String SESSION_PREFIX = "session:";
     private static final Duration SESSION_TTL = Duration.ofHours(8);
@@ -95,6 +100,9 @@ public class AccountService {
         // 登录成功
         accountRepository.updateLoginFields(accountId, 0, null, Instant.now());
 
+        // 获取角色权限
+        List<String> permissions = roleService.getRolePermissionStrings(account.getRole());
+
         // 生成 JWT
         AccountPrincipal principal = new AccountPrincipal(
                 accountId,
@@ -102,7 +110,7 @@ public class AccountService {
                 account.getSchoolId(),
                 account.getRealName(),
                 UUID.randomUUID().toString(),
-                java.util.List.of()
+                permissions
         );
 
         // 写入 Redis Session
@@ -209,7 +217,7 @@ public class AccountService {
     /**
      * 分页查询账号列表
      */
-    public IPage<Account> listAccounts(UUID schoolId, String role, String status, String keyword, int page, int pageSize) {
+    public IPage<Map<String, Object>> listAccounts(UUID schoolId, String role, String status, String keyword, int page, int pageSize) {
         Page<Account> p = new Page<>(page, pageSize);
         com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Account> q =
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
@@ -226,7 +234,34 @@ public class AccountService {
             q.and(w -> w.like(Account::getRealName, keyword).or().like(Account::getUsername, keyword));
         }
         q.orderByDesc(Account::getCreatedAt);
-        return accountRepository.selectPage(p, q);
+        IPage<Account> pageResult = accountRepository.selectPage(p, q);
+
+        // 预加载学校名称
+        Map<UUID, String> schoolNameMap = schoolRepository.selectList(null).stream()
+                .collect(Collectors.toMap(School::getSchoolId, School::getSchoolName, (a, b) -> a));
+
+        List<Map<String, Object>> records = pageResult.getRecords().stream()
+                .map(acc -> {
+                    Map<String, Object> m = new java.util.HashMap<>();
+                    m.put("accountId", acc.getAccountId().toString());
+                    m.put("username", acc.getUsername());
+                    m.put("realName", acc.getRealName());
+                    m.put("role", acc.getRole());
+                    m.put("schoolId", acc.getSchoolId() != null ? acc.getSchoolId().toString() : null);
+                    m.put("schoolName", acc.getSchoolId() != null ? schoolNameMap.getOrDefault(acc.getSchoolId(), null) : null);
+                    m.put("status", acc.getStatus());
+                    m.put("mustChangePassword", acc.getMustChangePassword());
+                    m.put("createdAt", acc.getCreatedAt() != null ? acc.getCreatedAt().toString() : null);
+                    return m;
+                })
+                .collect(Collectors.toList());
+
+        Page<Map<String, Object>> result = new Page<>();
+        result.setCurrent(pageResult.getCurrent());
+        result.setSize(pageResult.getSize());
+        result.setTotal(pageResult.getTotal());
+        result.setRecords(records);
+        return result;
     }
 
     /**
@@ -269,6 +304,9 @@ public class AccountService {
         }
         if (req.getPhone() != null) {
             account.setPhone(req.getPhone());
+        }
+        if (req.getSchoolId() != null) {
+            account.setSchoolId(req.getSchoolId());
         }
         accountRepository.updateById(account);
         log.info("更新账号: accountId={}", accountId);
@@ -316,5 +354,6 @@ public class AccountService {
         private String realName;
         private String role;
         private String phone;
+        private UUID schoolId;
     }
 }

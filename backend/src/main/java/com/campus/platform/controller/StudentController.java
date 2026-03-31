@@ -118,6 +118,17 @@ public class StudentController {
         return Result.ok();
     }
 
+    @Operation(summary = "批量录取")
+    @PostMapping("/batch-admit")
+    @RequireRole({"SCHOOL_ADMIN", "SCHOOL_STAFF"})
+    public Result<Void> batchAdmit(@RequestBody @Valid BatchAdmitRequest req) {
+        for (UUID pushId : req.getPushIds()) {
+            admissionService.directAdmission(pushId, req.getMajorId(),
+                    req.getRemark(), SecurityContext.getAccountId());
+        }
+        return Result.ok();
+    }
+
     @Operation(summary = "全局搜索考生")
     @GetMapping("/search")
     @RequireRole({"SCHOOL_ADMIN", "SCHOOL_STAFF", "OP_ADMIN"})
@@ -256,6 +267,13 @@ public class StudentController {
     @Data
     public static class BatchRejectRequest {
         @NotNull private List<UUID> pushIds;
+    }
+
+    @Data
+    public static class BatchAdmitRequest {
+        @NotNull private List<UUID> pushIds;
+        @NotNull private UUID majorId;
+        private String remark;
     }
 
     @Data

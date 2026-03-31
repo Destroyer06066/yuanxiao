@@ -42,14 +42,18 @@
               <el-icon><OfficeBuilding /></el-icon>
               <template #title>院校列表</template>
             </el-menu-item>
-            <el-menu-item index="/accounts">
-              <el-icon><Avatar /></el-icon>
-              <template #title>账号管理</template>
-            </el-menu-item>
           </el-sub-menu>
 
           <el-sub-menu index="system">
             <template #title><el-icon><Setting /></el-icon><span>系统</span></template>
+            <el-menu-item index="/accounts">
+              <el-icon><Avatar /></el-icon>
+              <template #title>账号管理</template>
+            </el-menu-item>
+            <el-menu-item index="/roles">
+              <el-icon><Key /></el-icon>
+              <template #title>角色管理</template>
+            </el-menu-item>
             <el-menu-item index="/admin/audit-logs">
               <el-icon><Document /></el-icon>
               <template #title>操作日志</template>
@@ -103,16 +107,6 @@
             </el-menu-item>
           </el-sub-menu>
 
-          <!-- OP_ADMIN 专属菜单 -->
-          <el-menu-item v-if="authStore.isOpAdmin" index="/accounts">
-            <el-icon><Avatar /></el-icon>
-            <template #title>账号管理</template>
-          </el-menu-item>
-          <el-menu-item v-if="authStore.isOpAdmin" index="/roles">
-            <el-icon><Key /></el-icon>
-            <template #title>角色管理</template>
-          </el-menu-item>
-
           <!-- SCHOOL_ADMIN 系统菜单 -->
           <el-sub-menu v-if="authStore.role === 'SCHOOL_ADMIN'" index="school-system">
             <template #title><el-icon><Setting /></el-icon><span>系统</span></template>
@@ -125,6 +119,7 @@
               <template #title>站内通知</template>
             </el-menu-item>
           </el-sub-menu>
+        </template>
 
       </el-menu>
     </el-aside>
@@ -159,6 +154,9 @@
                 :value="item.pushId"
               >
                 <span style="float:left">{{ item.candidateName }}</span>
+                <span style="float:right; color:#409eff; font-size:12px; font-weight:600; margin-right:8px">
+                  {{ item.totalScore != null ? '分数: ' + item.totalScore : '' }}
+                </span>
                 <span style="float:right; color:#999; font-size:12px; margin-right:8px">
                   {{ item.schoolName || '' }}
                 </span>
@@ -211,7 +209,7 @@ import {
   DataLine, RefreshRight, Stamp, Check,
   DataBoard, Avatar, Bell, Expand, Fold,
   ArrowDown, SwitchButton, School,
-  TrendCharts, Setting, Document
+  TrendCharts, Setting, Document, Key
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -308,6 +306,10 @@ function handleCommand(cmd: string) {
   .sidebar-menu {
     border-right: none;
     background: transparent;
+    --el-menu-bg-color: transparent;
+    --el-menu-hover-bg-color: #263445;
+    --el-menu-text-color: #bfcbd9;
+    --el-menu-active-color: #409eff;
 
     :deep(.el-menu-item),
     :deep(.el-sub-menu__title) {
@@ -318,9 +320,8 @@ function handleCommand(cmd: string) {
       background: #263445;
       color: #409eff;
     }
-    :deep(.el-sub-menu .el-menu-item.is-active) {
-      background: #263445;
-      color: #409eff;
+    :deep(.el-sub-menu .el-menu) {
+      --el-menu-bg-color: transparent;
     }
   }
 }

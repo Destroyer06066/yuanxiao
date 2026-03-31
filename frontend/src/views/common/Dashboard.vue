@@ -3,6 +3,10 @@
     <div class="page-header">
       <h2 class="page-title">工作台</h2>
       <span class="greeting">欢迎回来，{{ authStore.realName }}</span>
+      <el-button :loading="refreshing" @click="refreshAll" size="small">
+        <el-icon><Refresh /></el-icon>
+        刷新
+      </el-button>
     </div>
 
     <!-- ========== OP_ADMIN 专属内容 ========== -->
@@ -84,7 +88,14 @@
             <span>近期操作动态</span>
           </div>
         </template>
-        <el-table :data="recentOps" stripe v-loading="loadingRecentOps">
+        <EmptyState
+          v-if="recentOps.length === 0 && !loadingRecentOps"
+          title="暂无操作记录"
+          description="各院校的录取操作会显示在这里"
+          icon="Clock"
+          size="medium"
+        />
+        <el-table v-else :data="recentOps" stripe v-loading="loadingRecentOps">
           <el-table-column prop="createdAt" label="时间" width="170">
             <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
           </el-table-column>
@@ -185,8 +196,9 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import axios from '@/api/axios'
+import EmptyState from '@/components/EmptyState.vue'
 import {
-  Clock, Trophy, Check, User, Warning, Bell
+  Clock, Trophy, Check, User, Warning, Bell, Refresh
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -212,6 +224,18 @@ const quotaUsage = ref<any[]>([])
 // ========== 通用 ==========
 const recentOps = ref<any[]>([])
 const loadingRecentOps = ref(false)
+const refreshing = ref(false)
+
+async function refreshAll() {
+  refreshing.value = true
+  await loadStats()
+  if (authStore.isOpAdmin) {
+    await Promise.all([loadSchoolProgress(), loadAlerts(), loadRecentOps()])
+  } else {
+    await Promise.all([loadTodoItems(), loadQuotaUsage(), loadRecentOps(10)])
+  }
+  refreshing.value = false
+}
 
 async function loadStats() {
   try {
@@ -323,6 +347,10 @@ onMounted(async () => {
   .greeting {
     color: #909399;
     font-size: 14px;
+  }
+
+  .page-header .el-button {
+    margin-left: 12px;
   }
 }
 

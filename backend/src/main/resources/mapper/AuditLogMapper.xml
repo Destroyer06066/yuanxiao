@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.campus.platform.repository.AuditLogRepository">
+
+    <resultMap id="BaseResultMap" type="com.campus.platform.entity.AuditLog">
+        <id column="audit_id" property="auditId" jdbcType="OTHER" typeHandler="com.campus.platform.handler.UUIDJdbcTypeHandler"/>
+        <result column="operator_id" property="operatorId" jdbcType="OTHER" typeHandler="com.campus.platform.handler.UUIDJdbcTypeHandler"/>
+        <result column="operator_role" property="operatorRole"/>
+        <result column="school_id" property="schoolId" jdbcType="OTHER" typeHandler="com.campus.platform.handler.UUIDJdbcTypeHandler"/>
+        <result column="action" property="action"/>
+        <result column="target_type" property="targetType"/>
+        <result column="target_id" property="targetId" jdbcType="OTHER" typeHandler="com.campus.platform.handler.UUIDJdbcTypeHandler"/>
+        <result column="before_snapshot" property="beforeSnapshot"/>
+        <result column="after_snapshot" property="afterSnapshot"/>
+        <result column="ip_address" property="ipAddress"/>
+        <result column="user_agent" property="userAgent"/>
+        <result column="operated_at" property="operatedAt"/>
+    </resultMap>
+
+    <select id="selectPaged" resultMap="BaseResultMap">
+        SELECT al.*,
+               a.real_name  AS operatorName,
+               s.school_name AS schoolName
+        FROM audit_log al
+        LEFT JOIN account a ON al.operator_id = a.account_id
+        LEFT JOIN school s  ON al.school_id = s.school_id
+        WHERE 1=1
+        <if test="operatorName != null and operatorName != ''">
+            AND a.real_name ILIKE '%' || #{operatorName} || '%'
+        </if>
+        <if test="action != null and action != ''">
+            AND al.action = #{action}
+        </if>
+        <if test="startTime != null">
+            AND al.operated_at &gt;= #{startTime}
+        </if>
+        <if test="endTime != null">
+            AND al.operated_at &lt;= #{endTime}
+        </if>
+        ORDER BY al.operated_at DESC
+    </select>
+
+</mapper>

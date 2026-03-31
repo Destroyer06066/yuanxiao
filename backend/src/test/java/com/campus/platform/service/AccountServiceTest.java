@@ -24,6 +24,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -40,6 +41,7 @@ class AccountServiceTest {
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private JwtTokenProvider jwtTokenProvider;
     @Mock private RedisService redisService;
+    @Mock private RoleService roleService;
 
     @InjectMocks private AccountService accountService;
 
@@ -63,6 +65,20 @@ class AccountServiceTest {
     @Nested
     @DisplayName("login")
     class LoginTests {
+
+        @BeforeEach
+        void setUpLoginMocks() {
+            // 模拟 RoleService 返回 SCHOOL_ADMIN 的权限
+            when(roleService.getRolePermissionStrings(AccountRole.SCHOOL_ADMIN.name()))
+                    .thenReturn(List.of("account:read", "account:create", "account:edit", "account:disable",
+                            "major:read", "major:create", "major:edit", "major:disable",
+                            "quota:read", "quota:create", "quota:edit",
+                            "verification:read", "verification:create",
+                            "checkin:read", "checkin:material", "checkin:confirm",
+                            "report:read"));
+            when(roleService.getRolePermissionStrings(AccountRole.OP_ADMIN.name()))
+                    .thenReturn(List.of("*"));
+        }
 
         @Test
         @DisplayName("正确账号密码 → 登录成功，返回 Principal")

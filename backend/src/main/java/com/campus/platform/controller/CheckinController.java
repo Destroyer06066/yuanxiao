@@ -26,9 +26,10 @@ public class CheckinController {
     @GetMapping("/api/v1/checkins")
     @RequireRole({"SCHOOL_ADMIN", "SCHOOL_STAFF"})
     public Result<List<Map<String, Object>>> list(
-            @RequestParam(required = false) String status) {
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Boolean materialReceived) {
         UUID schoolId = SecurityContext.getSchoolId();
-        return Result.ok(checkinService.getCheckinList(schoolId, status));
+        return Result.ok(checkinService.getCheckinList(schoolId, status, materialReceived));
     }
 
     @Operation(summary = "登记材料收件")

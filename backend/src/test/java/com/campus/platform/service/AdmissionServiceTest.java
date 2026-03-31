@@ -39,6 +39,8 @@ class AdmissionServiceTest {
     @Mock private AccountRepository accountRepository;
     @Mock private RegistrationPlatformClient registrationPlatformClient;
     @Mock private RedisService redisService;
+    @Mock private OperationLogService operationLogService;
+    @Mock private NotificationService notificationService;
 
     @InjectMocks private AdmissionService admissionService;
 

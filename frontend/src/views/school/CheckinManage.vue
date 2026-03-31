@@ -52,19 +52,19 @@
         </el-table-column>
         <el-table-column prop="receiveTime" label="材料收件时间" width="170" />
         <el-table-column prop="checkinTime" label="报到时间" width="170" />
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
             <el-button
               v-if="can('checkin:material') && row.status === 'CONFIRMED'"
               type="success" link
-              @click="handleReceiveMaterial(row)"
+              @click="openReceiveDialog(row)"
             >
               登记收件
             </el-button>
             <el-button
               v-if="can('checkin:confirm') && row.status === 'MATERIAL_RECEIVED'"
               type="primary" link
-              @click="handleCheckin(row)"
+              @click="openCheckinDialog(row)"
             >
               确认报到
             </el-button>
@@ -84,6 +84,38 @@
         @current-change="fetchCheckins"
       />
     </el-card>
+
+    <!-- 登记收件对话框 -->
+    <el-dialog v-model="receiveDialogVisible" title="登记材料收件" width="420px">
+      <el-form :model="receiveForm" label-width="70px">
+        <el-form-item label="考生">
+          <span>{{ receiveForm.candidateName }}</span>
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="receiveForm.note" type="textarea" :rows="3" placeholder="选填，补充说明收件情况" maxlength="200" show-word-limit />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="receiveDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="submitting" @click="confirmReceiveMaterial">确认收件</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 确认报到对话框 -->
+    <el-dialog v-model="checkinDialogVisible" title="确认报到" width="420px">
+      <el-form :model="checkinForm" label-width="70px">
+        <el-form-item label="考生">
+          <span>{{ checkinForm.candidateName }}</span>
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="checkinForm.note" type="textarea" :rows="3" placeholder="选填，补充说明报到情况" maxlength="200" show-word-limit />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="checkinDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="submitting" @click="confirmCheckin">确认报到</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -96,8 +128,14 @@ import { usePermission } from '@/composables/usePermission'
 const { can } = usePermission()
 
 const loading = ref(false)
+const submitting = ref(false)
 const list = ref<CheckinRecord[]>([])
 const total = ref(0)
+
+const receiveDialogVisible = ref(false)
+const receiveForm = reactive({ pushId: '', candidateName: '', note: '' })
+const checkinDialogVisible = ref(false)
+const checkinForm = reactive({ pushId: '', candidateName: '', note: '' })
 
 const query = reactive({
   status: '',
@@ -127,19 +165,14 @@ function statusExplain(status: string) {
 async function fetchCheckins() {
   loading.value = true
   try {
-    const res = await getCheckinList()
-    let data: CheckinRecord[] = res.data.data || []
-    // 前端筛选
-    if (query.status) {
-      data = data.filter(d => d.status === query.status)
-    }
-    if (query.materialReceived === 'true') {
-      data = data.filter(d => d.receiveTime)
-    } else if (query.materialReceived === 'false') {
-      data = data.filter(d => !d.receiveTime)
-    }
-    list.value = data
-    total.value = data.length
+    const params: { status?: string; materialReceived?: boolean } = {}
+    if (query.status) params.status = query.status
+    if (query.materialReceived === 'true') params.materialReceived = true
+    else if (query.materialReceived === 'false') params.materialReceived = false
+
+    const res = await getCheckinList(params)
+    list.value = res.data.data || []
+    total.value = list.value.length
   } catch {
     // error handled by axios interceptor
   } finally {
@@ -159,23 +192,45 @@ function resetQuery() {
   fetchCheckins()
 }
 
-async function handleReceiveMaterial(row: CheckinRecord) {
+function openReceiveDialog(row: CheckinRecord) {
+  receiveForm.pushId = row.pushId
+  receiveForm.candidateName = row.candidateName
+  receiveForm.note = ''
+  receiveDialogVisible.value = true
+}
+
+async function confirmReceiveMaterial() {
+  submitting.value = true
   try {
-    await receiveMaterial(row.pushId)
+    await receiveMaterial(receiveForm.pushId, receiveForm.note || undefined)
     ElMessage.success('已登记收件')
+    receiveDialogVisible.value = false
     fetchCheckins()
   } catch {
     // error handled by axios interceptor
+  } finally {
+    submitting.value = false
   }
 }
 
-async function handleCheckin(row: CheckinRecord) {
+function openCheckinDialog(row: CheckinRecord) {
+  checkinForm.pushId = row.pushId
+  checkinForm.candidateName = row.candidateName
+  checkinForm.note = ''
+  checkinDialogVisible.value = true
+}
+
+async function confirmCheckin() {
+  submitting.value = true
   try {
-    await doCheckin(row.pushId)
+    await doCheckin(checkinForm.pushId, checkinForm.note || undefined)
     ElMessage.success('已确认报到')
+    checkinDialogVisible.value = false
     fetchCheckins()
   } catch {
     // error handled by axios interceptor
+  } finally {
+    submitting.value = false
   }
 }
 

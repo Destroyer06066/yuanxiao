@@ -20,6 +20,11 @@ public interface CandidatePushRepository extends BaseMapper<CandidatePush> {
 
     List<CandidatePush> findByCandidateId(@Param("candidateId") String candidateId);
 
+    /**
+     * 查询所有有数据的年份（从 pushed_at 和 operated_at 中提取）
+     */
+    List<Integer> findDistinctYears(@Param("schoolId") UUID schoolId);
+
     IPage<CandidatePush> pageQuery(Page<CandidatePush> page,
                                    @Param("schoolId") UUID schoolId,
                                    @Param("statusList") List<String> statusList,

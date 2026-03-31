@@ -24,7 +24,12 @@
           <div class="notif-content">
             <div class="notif-title">{{ item.title }}</div>
             <div class="notif-body">{{ item.content }}</div>
-            <div class="notif-time">{{ formatTime(item.createdAt) }}</div>
+            <div class="notif-footer">
+              <span class="notif-time">{{ formatTime(item.createdAt) }}</span>
+              <el-button v-if="item.pushId" type="primary" link @click.stop="viewDetail(item)">
+                查看详情
+              </el-button>
+            </div>
           </div>
         </div>
       </div>
@@ -43,13 +48,15 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { Bell } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 import axios from '@/api/axios'
 
 interface Notification {
-  id: string
+  notificationId: string
+  pushId: string | null
   title: string
   content: string
   isRead: boolean
@@ -59,13 +66,18 @@ interface Notification {
 const list = ref<Notification[]>([])
 const page = ref(1)
 const total = ref(0)
+const router = useRouter()
 const hasUnread = ref(false)
 
 async function fetchNotifications() {
   const res = await axios.get('/v1/notifications', {
     params: { page: page.value, pageSize: 20 },
   })
-  list.value = res.data.data.records
+  list.value = res.data.data.records.map((n: any) => ({
+    ...n,
+    notificationId: n.notificationId || n.id,
+    pushId: n.pushId,
+  }))
   total.value = res.data.data.total
   hasUnread.value = list.value.some((n: Notification) => !n.isRead)
 }
@@ -76,8 +88,14 @@ function formatTime(ts: string) {
 
 async function handleRead(item: Notification) {
   if (item.isRead) return
-  await axios.patch(`/v1/notifications/${item.id}/read`)
+  await axios.patch(`/v1/notifications/${item.notificationId}/read`)
   item.isRead = true
+}
+
+function viewDetail(item: Notification) {
+  if (item.pushId) {
+    router.push(`/students/${item.pushId}`)
+  }
 }
 
 async function markAllRead() {
@@ -135,6 +153,12 @@ onUnmounted(() => {
       .notif-title { font-size: 14px; color: #303133; margin-bottom: 4px; }
       .notif-body { font-size: 13px; color: #606266; margin-bottom: 4px; }
       .notif-time { font-size: 12px; color: #909399; }
+      .notif-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 4px;
+      }
     }
   }
 }

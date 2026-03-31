@@ -7,6 +7,9 @@ export interface KpiData {
   confirmed: number
   checkedIn: number
   totalLastYear: number
+  admittedLastYear: number
+  confirmedLastYear: number
+  checkedInLastYear: number
 }
 
 export interface MonthlyTrend {
@@ -27,6 +30,7 @@ export interface StatusDistItem {
 
 export interface MajorRankingItem {
   majorId: string
+  majorName: string
   admitted: number
   confirmed: number
   checkedIn: number
@@ -43,3 +47,6 @@ export const getStatusDistribution = () =>
 
 export const getMajorRanking = (params?: { limit?: number }) =>
   axios.get<Result<MajorRankingItem[]>>('/v1/statistics/major-ranking', { params })
+
+export const getAvailableYears = () =>
+  axios.get<Result<number[]>>('/v1/statistics/years')

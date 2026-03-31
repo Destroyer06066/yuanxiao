@@ -77,6 +77,22 @@
         SELECT * FROM candidate_push WHERE candidate_id = #{candidateId}
     </select>
 
+    <select id="findDistinctYears" resultType="java.lang.Integer">
+        SELECT DISTINCT yr FROM (
+            SELECT EXTRACT(YEAR FROM pushed_at)::int AS yr FROM candidate_push WHERE deleted = 0
+            <if test="schoolId != null">
+                AND school_id = #{schoolId}
+            </if>
+            UNION
+            SELECT EXTRACT(YEAR FROM operated_at)::int AS yr FROM candidate_push WHERE deleted = 0 AND operated_at IS NOT NULL
+            <if test="schoolId != null">
+                AND school_id = #{schoolId}
+            </if>
+        ) years
+        WHERE yr IS NOT NULL AND yr > 0
+        ORDER BY yr DESC
+    </select>
+
     <select id="selectForExport" resultType="com.campus.platform.entity.CandidatePush">
         SELECT cp.*,
                s.school_name       AS schoolName,

@@ -40,6 +40,8 @@ class CandidateServiceTest {
     @Mock private MajorRepository majorRepository;
     @Mock private AccountRepository accountRepository;
     @Mock private RegistrationPlatformClient registrationPlatformClient;
+    @Mock private OperationLogService operationLogService;
+    @Mock private NotificationService notificationService;
 
     @InjectMocks private CandidateService candidateService;
 

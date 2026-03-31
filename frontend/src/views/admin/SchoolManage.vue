@@ -39,6 +39,7 @@
         <el-table-column prop="schoolType" label="类型" width="100" />
         <el-table-column prop="contactName" label="联系人" width="100" />
         <el-table-column prop="contactPhone" label="联系电话" width="130" />
+        <el-table-column prop="createdAt" label="创建时间" width="170" />
         <el-table-column prop="status" label="状态" width="80">
           <template #default="{ row }">
             <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'danger'" size="small">
@@ -81,6 +82,8 @@
       @closed="resetForm"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
+        <!-- 基本信息 -->
+        <div class="form-group-title">基本信息</div>
         <el-form-item label="院校全称" prop="schoolName">
           <el-input v-model="form.schoolName" placeholder="请输入院校名称" maxlength="100" />
         </el-form-item>
@@ -88,11 +91,22 @@
           <el-input v-model="form.schoolShortName" placeholder="请输入院校简称" maxlength="20" />
         </el-form-item>
         <el-form-item label="所在省份" prop="province">
-          <el-input v-model="form.province" placeholder="请输入所在省份" />
+          <el-select v-model="form.province" placeholder="请选择省份" style="width: 100%">
+            <el-option v-for="p in provinces" :key="p" :label="p" :value="p" />
+          </el-select>
         </el-form-item>
         <el-form-item label="院校类型" prop="schoolType">
-          <el-input v-model="form.schoolType" placeholder="请输入院校类型，如：综合类、理工类" />
+          <el-select v-model="form.schoolType" placeholder="请选择类型" style="width: 100%">
+            <el-option label="综合类" value="综合类" />
+            <el-option label="理工类" value="理工类" />
+            <el-option label="文史类" value="文史类" />
+            <el-option label="艺术类" value="艺术类" />
+            <el-option label="其他" value="其他" />
+          </el-select>
         </el-form-item>
+
+        <!-- 联系信息 -->
+        <div class="form-group-title">联系信息</div>
         <el-form-item label="联系人" prop="contactName">
           <el-input v-model="form.contactName" placeholder="请输入联系人姓名" maxlength="50" />
         </el-form-item>
@@ -102,8 +116,11 @@
         <el-form-item label="邮箱" prop="contactEmail">
           <el-input v-model="form.contactEmail" placeholder="请输入联系人邮箱" />
         </el-form-item>
+
+        <!-- 选填信息 -->
+        <div class="form-group-title">选填信息</div>
         <el-form-item label="官网" prop="website">
-          <el-input v-model="form.website" placeholder="请输入院校官网（选填）" />
+          <el-input v-model="form.website" placeholder="请输入院校官网" />
         </el-form-item>
         <el-form-item label="备注" prop="remark">
           <el-input v-model="form.remark" type="textarea" :rows="2" placeholder="选填" maxlength="500" />
@@ -171,7 +188,7 @@ const rules: FormRules = {
     { max: 20, message: '简称最多20个字符', trigger: 'blur' },
   ],
   province: [{ required: true, message: '请输入所在省份', trigger: 'blur' }],
-  schoolType: [{ required: true, message: '请输入院校类型', trigger: 'blur' }],
+  schoolType: [{ required: true, message: '请选择院校类型', trigger: 'change' }],
   contactName: [
     { required: true, message: '请输入联系人', trigger: 'blur' },
     { max: 50, message: '联系人姓名最多50个字符', trigger: 'blur' },
@@ -323,6 +340,17 @@ onMounted(() => {
   font-size: 18px;
   font-weight: 600;
 }
+  .form-group-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #303133;
+    margin: 12px 0 8px;
+    padding-left: 8px;
+    border-left: 3px solid #409eff;
+  }
+  .form-group-title:first-child {
+    margin-top: 0;
+  }
 .filter-row {
   display: flex;
   align-items: center;

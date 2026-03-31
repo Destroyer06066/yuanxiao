@@ -1,10 +1,7 @@
 package com.campus.platform.controller;
 
-import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.campus.platform.common.result.Result;
-import com.campus.platform.entity.Account;
-import com.campus.platform.repository.SchoolRepository;
 import com.campus.platform.security.AccountPrincipal;
 import com.campus.platform.security.SecurityContext;
 import com.campus.platform.service.AccountService;
@@ -30,7 +27,6 @@ import static org.mockito.Mockito.*;
 class AccountControllerTest {
 
     @Mock private AccountService accountService;
-    @Mock private SchoolRepository schoolRepository;
 
     @InjectMocks
     private AccountController accountController;
@@ -54,11 +50,15 @@ class AccountControllerTest {
     @Test
     @DisplayName("OP_ADMIN 获取全部账号列表")
     void list_opAdmin_returnsAllAccounts() {
-        Page<Account> page = new Page<>(1, 20);
-        Account account = new Account();
-        account.setAccountId(UUID.randomUUID());
-        account.setUsername("testuser");
-        page.setRecords(List.of(account));
+        Page<Map<String, Object>> page = new Page<>(1, 20);
+        Map<String, Object> accountMap = Map.of(
+                "accountId", UUID.randomUUID().toString(),
+                "username", "testuser",
+                "realName", "测试用户",
+                "role", "OP_ADMIN",
+                "status", "ACTIVE"
+        );
+        page.setRecords(List.of(accountMap));
         page.setTotal(1);
 
         // OP_ADMIN: schoolId = null
@@ -69,7 +69,7 @@ class AccountControllerTest {
 
         assertThat(result.getCode()).isEqualTo(0);
         @SuppressWarnings("unchecked")
-        List<Account> records = (List<Account>) result.getData().get("records");
+        List<Map<String, Object>> records = (List<Map<String, Object>>) result.getData().get("records");
         assertThat(records).hasSize(1);
         assertThat(result.getData().get("total")).isEqualTo(1L);
     }
@@ -143,5 +143,35 @@ class AccountControllerTest {
 
         assertThat(result.getCode()).isEqualTo(0);
         verify(accountService).toggleStatus(accountId, "INACTIVE");
+    }
+
+    @Test
+    @DisplayName("不能禁用自己的账号")
+    void toggleStatus_cannotDisableSelf() {
+        String ownAccountId = opAdmin.getAccountId().toString();
+        AccountController.StatusRequest req = new AccountController.StatusRequest();
+        req.setStatus("INACTIVE");
+
+        var ex = org.junit.jupiter.api.Assertions.assertThrows(
+                com.campus.platform.common.exception.BusinessException.class,
+                () -> accountController.toggleStatus(ownAccountId, req));
+
+        assertThat(ex.getCode()).isEqualTo(com.campus.platform.common.exception.ErrorCode.FORBIDDEN);
+        assertThat(ex.getMessage()).isEqualTo("不能禁用自己的账号");
+    }
+
+    @Test
+    @DisplayName("SCHOOL_ADMIN schoolId 为空时无权访问账号列表")
+    void list_schoolAdminWithNullSchoolId_forbidden() {
+        AccountPrincipal schoolAdmin = new AccountPrincipal(
+                UUID.randomUUID(), "SCHOOL_ADMIN", null, "院校管理员", "jti-school", List.of());
+        SecurityContext.set(schoolAdmin);
+
+        var ex = org.junit.jupiter.api.Assertions.assertThrows(
+                com.campus.platform.common.exception.BusinessException.class,
+                () -> accountController.list(null, null, null, 1, 20));
+
+        assertThat(ex.getCode()).isEqualTo(com.campus.platform.common.exception.ErrorCode.FORBIDDEN);
+        assertThat(ex.getMessage()).isEqualTo("无权访问此资源");
     }
 }

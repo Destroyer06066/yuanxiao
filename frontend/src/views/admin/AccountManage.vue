@@ -39,7 +39,9 @@
         <el-table-column prop="realName" label="姓名" width="100" />
         <el-table-column prop="role" label="角色" width="140">
           <template #default="{ row }">
-            <el-tag :type="roleTagType(row.role)" size="small">{{ roleLabel(row.role) }}</el-tag>
+            <el-tooltip :content="rolePermissionTip(row.role)" placement="top" :enterable="false">
+              <el-tag :type="roleTagType(row.role)" size="small">{{ roleLabel(row.role) }}</el-tag>
+            </el-tooltip>
           </template>
         </el-table-column>
         <el-table-column prop="schoolName" label="所属院校" min-width="140">
@@ -60,7 +62,7 @@
             <el-button v-if="can('account:edit')" type="primary" link @click="openEdit(row)">编辑</el-button>
             <el-button type="warning" link @click="handleResetPassword(row)">重置密码</el-button>
             <el-button
-              v-if="can('account:disable')"
+              v-if="can('account:disable') && row.accountId !== auth.accountId"
               :type="row.status === 'ACTIVE' ? 'danger' : 'success'" link
               @click="handleToggle(row)"
             >
@@ -172,8 +174,10 @@ import {
 } from '@/api/account'
 import { getSchools, type School } from '@/api/school'
 import { usePermission } from '@/composables/usePermission'
+import { useAuthStore } from '@/stores/auth'
 
 const { can, isOpAdmin } = usePermission()
+const auth = useAuthStore()
 
 // ========== 角色辅助 ==========
 function roleLabel(role: string) {
@@ -191,6 +195,15 @@ function roleTagType(role: string): 'primary' | 'success' | 'warning' | 'info' |
     SCHOOL_STAFF: 'info',
   }
   return map[role] || 'info'
+}
+
+function rolePermissionTip(role: string): string {
+  const map: Record<string, string> = {
+    OP_ADMIN: '运营管理员：可查看全局数据、统计数据，设置系统参数',
+    SCHOOL_ADMIN: '院校管理员：可管理本校考生录取、报到、专业配置和名额管理',
+    SCHOOL_STAFF: '院校工作人员：可查看和辅助操作本校数据',
+  }
+  return map[role] || role
 }
 
 // ========== 数据 ==========
@@ -255,6 +268,14 @@ const editForm = reactive({
 
 // ========== 接口 ==========
 async function fetchSchools() {
+  const auth = useAuthStore()
+  // 非 OP_ADMIN 无权访问 /api/v1/admin/schools，直接用本校
+  if (!auth.isOpAdmin) {
+    if (auth.schoolId) {
+      schoolList.value = [{ schoolId: auth.schoolId, schoolName: '本校' }]
+    }
+    return
+  }
   try {
     const res = await getSchools({ page: 1, pageSize: 500, status: 'ACTIVE' })
     schoolList.value = res.data.data.records || []
@@ -295,6 +316,12 @@ function resetQuery() {
 
 // ========== 弹窗 ==========
 function openCreate() {
+  resetCreateForm()
+  const auth = useAuthStore()
+  if (!auth.isOpAdmin && auth.schoolId) {
+    createForm.schoolId = auth.schoolId
+  }
+  fetchSchools()
   createVisible.value = true
 }
 
@@ -370,7 +397,7 @@ async function handleResetPassword(row: Account) {
       { type: 'warning' }
     )
     await resetAccountPassword(row.accountId)
-    ElMessage.success('密码已重置为默认密码')
+    ElMessage.success('密码已重置为默认密码：Aa123456!')
   } catch (e: any) {
     if (e !== 'cancel') {
       // error handled by axios interceptor
@@ -379,6 +406,10 @@ async function handleResetPassword(row: Account) {
 }
 
 async function handleToggle(row: Account) {
+  if (row.accountId === auth.accountId) {
+    ElMessage.error('不能禁用自己的账号')
+    return
+  }
   const action = row.status === 'ACTIVE' ? '禁用' : '启用'
   try {
     await ElMessageBox.confirm(

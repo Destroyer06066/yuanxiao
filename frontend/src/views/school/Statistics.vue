@@ -54,7 +54,7 @@
       </template>
       <el-table :data="majorRanking" stripe v-loading="rankingLoading">
         <el-table-column type="index" label="排名" width="80" />
-        <el-table-column prop="majorId" label="专业ID" width="300" />
+        <el-table-column prop="majorName" label="专业名称" min-width="160" />
         <el-table-column prop="admitted" label="已录取" width="100" />
         <el-table-column prop="confirmed" label="已确认" width="100" />
         <el-table-column prop="checkedIn" label="已报到" width="100" />
@@ -80,7 +80,7 @@ import {
   GridComponent, DataZoomComponent,
 } from 'echarts/components'
 import {
-  getKpis, getTrend, getStatusDistribution, getMajorRanking,
+  getKpis, getTrend, getStatusDistribution, getMajorRanking, getAvailableYears,
   type KpiData, type MonthlyTrend, type StatusDistItem, type MajorRankingItem,
 } from '@/api/statistics'
 
@@ -88,7 +88,20 @@ use([CanvasRenderer, LineChart, PieChart, TitleComponent, TooltipComponent, Lege
 
 // ========== 年份选择 ==========
 const selectedYear = ref(new Date().getFullYear())
-const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)
+const years = ref<number[]>([])
+
+async function loadYears() {
+  try {
+    const res = await getAvailableYears()
+    years.value = res.data.data || []
+    if (years.value.length > 0 && !years.value.includes(selectedYear.value)) {
+      selectedYear.value = years.value[0]
+    }
+  } catch {
+    // fallback to current year only
+    years.value = [new Date().getFullYear()]
+  }
+}
 
 // ========== KPI ==========
 const kpiData = ref<KpiData | null>(null)
@@ -117,9 +130,9 @@ const computedKpis = computed<KpiItem[]>(() => {
     last === 0 ? 0 : Math.round(((cur - last) / last) * 100)
   return [
     { label: '推送考生总数', value: d.totalPushed, color: '#409eff', trend: trend(d.totalPushed, d.totalLastYear), display: fmt(d.totalPushed) },
-    { label: '已录取人数', value: d.admitted, color: '#67c23a', trend: 0, display: fmt(d.admitted) },
-    { label: '已确认人数', value: d.confirmed, color: '#e6a23c', trend: 0, display: fmt(d.confirmed) },
-    { label: '已报到人数', value: d.checkedIn, color: '#25a861', trend: 0, display: fmt(d.checkedIn) },
+    { label: '已录取人数', value: d.admitted, color: '#67c23a', trend: trend(d.admitted, d.admittedLastYear), display: fmt(d.admitted) },
+    { label: '已确认人数', value: d.confirmed, color: '#e6a23c', trend: trend(d.confirmed, d.confirmedLastYear), display: fmt(d.confirmed) },
+    { label: '已报到人数', value: d.checkedIn, color: '#25a861', trend: trend(d.checkedIn, d.checkedInLastYear), display: fmt(d.checkedIn) },
   ]
 })
 
@@ -219,7 +232,7 @@ async function loadRanking() {
 }
 
 async function loadAll() {
-  await Promise.all([loadKpis(), loadTrend(), loadDist(), loadRanking()])
+  await Promise.all([loadYears(), loadKpis(), loadTrend(), loadDist(), loadRanking()])
 }
 
 onMounted(() => {

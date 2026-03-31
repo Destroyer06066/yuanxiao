@@ -17,4 +17,4 @@ export interface PermissionModule {
 }
 
 export const getPermissionTree = () =>
-  axios.get<Result<PermissionModule[]>>('/v1/permissions')
+  axios.get<Result<PermissionModule[]>>('/v1/permissions', { _silent: true } as any)

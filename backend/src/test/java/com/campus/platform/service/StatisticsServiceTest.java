@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.campus.platform.entity.CandidatePush;
 import com.campus.platform.entity.enums.CandidateStatus;
 import com.campus.platform.repository.CandidatePushRepository;
+import com.campus.platform.repository.MajorRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -33,6 +34,7 @@ import static org.mockito.Mockito.*;
 class StatisticsServiceTest {
 
     @Mock private CandidatePushRepository candidatePushRepository;
+    @Mock private MajorRepository majorRepository;
 
     @InjectMocks private StatisticsService statisticsService;
 
@@ -53,7 +55,7 @@ class StatisticsServiceTest {
         @DisplayName("返回各状态考生数量")
         void getKpis_returnsCounts() {
             when(candidatePushRepository.selectCount(any(LambdaQueryWrapper.class)))
-                    .thenReturn(100L, 30L, 20L, 10L, 90L);
+                    .thenReturn(100L, 30L, 20L, 10L, 90L, 25L, 15L, 8L);
 
             Map<String, Object> result = statisticsService.getKpis(schoolId);
 
@@ -62,6 +64,10 @@ class StatisticsServiceTest {
             assertEquals(30L, result.get("admitted"));
             assertEquals(20L, result.get("confirmed"));
             assertEquals(10L, result.get("checkedIn"));
+            assertEquals(90L, result.get("totalLastYear"));
+            assertEquals(25L, result.get("admittedLastYear"));
+            assertEquals(15L, result.get("confirmedLastYear"));
+            assertEquals(8L, result.get("checkedInLastYear"));
         }
 
         @Test
@@ -96,7 +102,7 @@ class StatisticsServiceTest {
             List<Map<String, Object>> result = statisticsService.getStatusDistribution(schoolId);
 
             assertNotNull(result);
-            assertEquals(7, result.size()); // 7 个状态
+            assertEquals(8, result.size()); // 8 个状态（含 MATERIAL_RECEIVED）
 
             // 找到 PENDING
             Map<String, Object> pendingRow = result.stream()
@@ -137,6 +143,7 @@ class StatisticsServiceTest {
 
             when(candidatePushRepository.selectList(any(LambdaQueryWrapper.class)))
                     .thenReturn(List.of(p1, p2, p3, p4));
+            when(majorRepository.findById(any())).thenReturn(java.util.Optional.empty());
 
             List<Map<String, Object>> result = statisticsService.getMajorRanking(schoolId, 10);
 
@@ -163,6 +170,7 @@ class StatisticsServiceTest {
 
             when(candidatePushRepository.selectList(any(LambdaQueryWrapper.class)))
                     .thenReturn(pushes);
+            when(majorRepository.findById(any())).thenReturn(java.util.Optional.empty());
 
             List<Map<String, Object>> result = statisticsService.getMajorRanking(schoolId, 3);
 

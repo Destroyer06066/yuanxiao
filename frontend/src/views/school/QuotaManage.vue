@@ -68,7 +68,7 @@
     <el-dialog
       v-model="dialogVisible"
       :title="isEdit ? '编辑名额' : '新增名额'"
-      width="500px"
+      width="520px"
       :close-on-click-modal="false"
       @closed="resetForm"
     >
@@ -87,6 +87,18 @@
         <el-form-item label="总名额" prop="totalQuota">
           <el-input-number v-model="form.totalQuota" :min="0" :max="99999" placeholder="请输入总名额数" style="width: 100%" />
         </el-form-item>
+        <!-- 编辑时显示已占用信息 -->
+        <el-alert
+          v-if="isEdit && editingRow"
+          type="warning"
+          :closable="false"
+          show-icon
+          style="margin-top: 4px"
+        >
+          当前已录取 <strong>{{ editingRow.enrolledCount }}</strong> 人，已预占 <strong>{{ editingRow.reservedCount }}</strong> 人，
+          剩余可用名额 <strong>{{ (editingRow.totalQuota || 0) - (editingRow.enrolledCount || 0) - (editingRow.reservedCount || 0) }}</strong> 个。
+          新总名额不得少于 <strong>{{ (editingRow.enrolledCount || 0) + (editingRow.reservedCount || 0) }}</strong>。
+        </el-alert>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -99,7 +111,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
-import { type FormInstance, type FormRules } from 'element-plus'
+import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import axios from '@/api/axios'
 import { usePermission } from '@/composables/usePermission'
 import { useAuthStore } from '@/stores/auth'
@@ -119,6 +131,7 @@ const majorList = ref<any[]>([])
 const isEdit = ref(false)
 const dialogVisible = ref(false)
 const editingId = ref('')
+const editingRow = ref<any>(null)
 const formRef = ref<FormInstance>()
 
 const query = reactive({
@@ -222,6 +235,7 @@ function openCreate() {
 async function openEdit(row: any) {
   isEdit.value = true
   editingId.value = row.quotaId
+  editingRow.value = row
   Object.assign(form, {
     majorId: row.majorId,
     year: row.year,
@@ -235,11 +249,21 @@ function resetForm() {
   form.majorId = ''
   form.year = currentYear
   form.totalQuota = 0
+  editingRow.value = null
 }
 
 async function submitForm() {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
+
+  // 编辑时校验：总名额不得少于已录取+已预占
+  if (isEdit.value && editingRow.value) {
+    const minRequired = (editingRow.value.enrolledCount || 0) + (editingRow.value.reservedCount || 0)
+    if (form.totalQuota < minRequired) {
+      ElMessage.error(`总名额不得少于已占用名额（${minRequired}），请先调整录取状态`)
+      return
+    }
+  }
 
   submitting.value = true
   try {

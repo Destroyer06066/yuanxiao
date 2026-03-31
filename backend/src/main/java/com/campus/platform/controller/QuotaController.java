@@ -2,7 +2,10 @@ package com.campus.platform.controller;
 
 import com.campus.platform.common.result.Result;
 import com.campus.platform.entity.AdmissionQuota;
+import com.campus.platform.entity.Major;
+import com.campus.platform.entity.enums.AccountRole;
 import com.campus.platform.repository.AdmissionQuotaRepository;
+import com.campus.platform.repository.MajorRepository;
 import com.campus.platform.security.RequireRole;
 import com.campus.platform.security.SecurityContext;
 import io.swagger.v3.oas.annotations.Operation;
@@ -19,33 +22,64 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Tag(name = "名额管理")
 @RestController
-@RequestMapping("/api/v1/quota")
+@RequestMapping("/api/v1/quotas")
 @RequiredArgsConstructor
 public class QuotaController {
 
     private final AdmissionQuotaRepository quotaRepository;
+    private final MajorRepository majorRepository;
 
-    @Operation(summary = "查询本校名额")
+    @Operation(summary = "查询名额列表（分页）")
     @GetMapping
-    @RequireRole({"SCHOOL_ADMIN", "SCHOOL_STAFF"})
-    public Result<List<Map<String, Object>>> list() {
-        UUID schoolId = SecurityContext.getSchoolId();
-        if (schoolId == null) return Result.ok(List.of());
-        List<AdmissionQuota> quotas = quotaRepository.findBySchoolId(schoolId);
-        List<Map<String, Object>> result = quotas.stream().map(q -> Map.<String, Object>of(
-                "quotaId", q.getQuotaId().toString(),
-                "majorId", q.getMajorId().toString(),
-                "year", q.getYear(),
-                "totalQuota", q.getTotalQuota(),
-                "admittedCount", q.getAdmittedCount(),
-                "reservedCount", q.getReservedCount(),
-                "remainQuota", q.getTotalQuota() - q.getAdmittedCount() - q.getReservedCount()
-        )).collect(Collectors.toList());
-        return Result.ok(result);
+    @RequireRole({"OP_ADMIN", "SCHOOL_ADMIN", "SCHOOL_STAFF"})
+    public Result<Map<String, Object>> list(
+            @RequestParam(required = false) UUID majorId,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int pageSize) {
+
+        UUID schoolId = null;
+        String role = SecurityContext.getRole();
+        if (!AccountRole.OP_ADMIN.name().equals(role)) {
+            schoolId = SecurityContext.getSchoolId();
+        }
+
+        List<AdmissionQuota> quotas = quotaRepository.findAll(schoolId, majorId, year);
+
+        // 预加载专业名称
+        var majorQ = new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Major>();
+        if (schoolId != null) majorQ.eq(Major::getSchoolId, schoolId);
+        Map<UUID, String> majorNameMap = majorRepository.selectList(majorQ).stream()
+                .collect(Collectors.toMap(Major::getMajorId, Major::getMajorName, (a, b) -> a));
+
+        int total = quotas.size();
+        int fromIndex = (page - 1) * pageSize;
+        int toIndex = Math.min(fromIndex + pageSize, total);
+        List<Map<String, Object>> pageRecords = (fromIndex < total)
+                ? quotas.subList(fromIndex, toIndex).stream()
+                    .map(q -> Map.<String, Object>of(
+                            "quotaId", q.getQuotaId().toString(),
+                            "majorId", q.getMajorId().toString(),
+                            "majorName", majorNameMap.getOrDefault(q.getMajorId(), ""),
+                            "year", q.getYear(),
+                            "totalQuota", q.getTotalQuota(),
+                            "enrolledCount", q.getAdmittedCount() != null ? q.getAdmittedCount() : 0,
+                            "reservedCount", q.getReservedCount() != null ? q.getReservedCount() : 0
+                    ))
+                    .collect(Collectors.toList())
+                : List.of();
+
+        return Result.ok(Map.of(
+                "records", pageRecords,
+                "total", total,
+                "page", page,
+                "pageSize", pageSize
+        ));
     }
 
     @Operation(summary = "创建/更新名额配置")
@@ -75,10 +109,27 @@ public class QuotaController {
         return Result.ok();
     }
 
+    @Operation(summary = "更新名额")
+    @PutMapping("/{quotaId}")
+    @RequireRole({"SCHOOL_ADMIN"})
+    public Result<Void> update(@PathVariable UUID quotaId, @RequestBody @Valid QuotaUpdateRequest req) {
+        quotaRepository.findById(quotaId)
+                .ifPresent(quota -> {
+                    quota.setTotalQuota(req.getTotalQuota());
+                    quotaRepository.updateById(quota);
+                });
+        return Result.ok();
+    }
+
     @Data
     public static class QuotaRequest {
         @NotNull private UUID majorId;
         @Min(0) private Integer totalQuota;
         private Integer year;
+    }
+
+    @Data
+    public static class QuotaUpdateRequest {
+        @Min(0) @NotNull private Integer totalQuota;
     }
 }

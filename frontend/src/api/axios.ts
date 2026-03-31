@@ -48,36 +48,40 @@ axiosInstance.interceptors.response.use(
     }
 
     if (data.code !== 0) {
-      ElMessage.error(data.message || '请求失败')
+      const silent = (response.config as any)?._silent === true
+      if (!silent) ElMessage.error(data.message || '请求失败')
       return Promise.reject(new Error(data.message))
     }
 
     return response
   },
   (error) => {
+    // 支持静默模式：请求配置中设置 _silent: true 则不弹全局错误提示
+    const silent = (error.config as any)?._silent === true
+
     if (error.response) {
       const { status, data } = error.response
 
       if (status === 401) {
         localStorage.removeItem('access_token')
         router.push({ name: 'Login' })
-        ElMessage.error('登录已过期，请重新登录')
+        if (!silent) ElMessage.error('登录已过期，请重新登录')
         return Promise.reject(error)
       }
 
       if (status === 403) {
-        ElMessage.error(data?.message || '权限不足')
+        if (!silent) ElMessage.error(data?.message || '权限不足')
         return Promise.reject(error)
       }
 
       if (status >= 500) {
-        ElMessage.error('服务器错误，请稍后重试')
+        if (!silent) ElMessage.error('服务器错误，请稍后重试')
         return Promise.reject(error)
       }
 
-      ElMessage.error(data?.message || '请求失败')
+      if (!silent) ElMessage.error(data?.message || '请求失败')
     } else {
-      ElMessage.error('网络错误，请检查网络连接')
+      if (!silent) ElMessage.error('网络错误，请检查网络连接')
     }
 
     return Promise.reject(error)

@@ -1,15 +1,34 @@
 <template>
   <div class="page-container">
+    <!-- OP_ADMIN 角色说明 -->
+    <el-alert
+      v-if="authStore.isOpAdmin"
+      title="运营管理员仅可查看各院校考生数据，招生操作（录取/拒绝/条件录取）由各院校管理员负责"
+      type="info"
+      :closable="false"
+      show-icon
+      class="role-notice"
+    />
+
     <div class="page-header">
       <h2 class="page-title">考生列表</h2>
       <div class="header-actions">
-        <el-button type="success" :disabled="selectedIds.length === 0" @click="handleBatchReject">
-          批量拒绝
-        </el-button>
-        <el-button type="primary" @click="handleExport">
-          <el-icon><Download /></el-icon>
-          导出
-        </el-button>
+        <el-tooltip content="请先勾选要操作的考生行" placement="bottom" :disabled="selectedIds.length > 0 && !authStore.isOpAdmin">
+          <el-button type="primary" :disabled="selectedIds.length === 0 || authStore.isOpAdmin" @click="openBatchAdmitDialog">
+            批量录取
+          </el-button>
+        </el-tooltip>
+        <el-tooltip content="请先勾选要操作的考生行" placement="bottom" :disabled="selectedIds.length > 0 && !authStore.isOpAdmin">
+          <el-button type="danger" :disabled="selectedIds.length === 0 || authStore.isOpAdmin" @click="handleBatchReject">
+            批量拒绝
+          </el-button>
+        </el-tooltip>
+        <el-tooltip content="导出当前筛选结果为 Excel 文件" placement="bottom">
+          <el-button type="primary" @click="handleExport">
+            <el-icon><Download /></el-icon>
+            导出
+          </el-button>
+        </el-tooltip>
       </div>
     </div>
 
@@ -51,13 +70,21 @@
         </el-form-item>
 
         <el-form-item label="推送轮次">
-          <el-input-number
-            v-model="query.round"
-            :min="0"
-            placeholder="轮次号"
-            style="width: 120px"
-            clearable
-          />
+          <el-check-tag
+            :checked="query.round === undefined"
+            @change="query.round = undefined; search()"
+          >全部</el-check-tag>
+          <el-check-tag
+            v-for="r in sortedRounds"
+            :key="r.roundId"
+            :checked="query.round === r.roundNumber"
+            :class="roundTagClass(r)"
+            @change="toggleRound(r)"
+          >
+            第{{ r.roundNumber }}轮
+            <span v-if="r.status === 'UPCOMING'" class="round-status">进行中</span>
+            <span v-else-if="r.status === 'ENDED'" class="round-status ended">已结束</span>
+          </el-check-tag>
         </el-form-item>
 
         <el-form-item>
@@ -73,9 +100,10 @@
           v-for="s in quickStatusTags"
           :key="s.value"
           :checked="query.status?.length === 1 && query.status[0] === s.value"
+          :class="{ 'has-data': getStatusCount(s.value) > 0 }"
           @change="toggleQuickStatus(s.value)"
         >
-          {{ s.label }}
+          {{ s.label }} ({{ getStatusCount(s.value) }})
         </el-check-tag>
       </div>
     </el-card>
@@ -105,7 +133,7 @@
         <el-table-column prop="status" label="状态" width="130">
           <template #default="{ row }">
             <el-tag :class="'status-tag ' + row.status" size="small">
-              {{ row.statusDesc }}
+              {{ statusLabelMap[row.status] || row.status }}
             </el-tag>
           </template>
         </el-table-column>
@@ -118,7 +146,11 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="pushedAt" label="推送时间" width="160" sortable />
+        <el-table-column prop="pushedAt" label="推送时间" width="160" sortable>
+          <template #default="{ row }">
+            {{ formatPushTime(row.pushedAt) }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="$router.push(`/students/${row.pushId}`)">
@@ -139,6 +171,13 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <div v-if="selectedRound" class="round-time-info">
+        <span>第{{ selectedRound.roundNumber }}轮投递时间窗口：</span>
+        <span>{{ formatRoundTimeFull(selectedRound.startTime) }}</span>
+        <span> 至 </span>
+        <span>{{ formatRoundTimeFull(selectedRound.endTime) }}</span>
+      </div>
 
       <div class="pagination-area">
         <el-pagination
@@ -173,6 +212,32 @@
       <template #footer>
         <el-button @click="admitDialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="submitting" @click="handleAdmit">确认录取</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 批量录取对话框 -->
+    <el-dialog v-model="batchAdmitDialogVisible" title="批量录取" width="500px">
+      <div style="margin-bottom: 16px; color: #606266;">
+        已选中 <strong>{{ selectedIds.length }}</strong> 名考生
+      </div>
+      <el-form :model="batchAdmitForm" label-width="80px">
+        <el-form-item label="录取专业" required>
+          <el-select v-model="batchAdmitForm.majorId" placeholder="请选择专业" class="full-width">
+            <el-option
+              v-for="m in majorOptions"
+              :key="m.majorId"
+              :label="`${m.majorName}（剩余${m.remainQuota}名额）`"
+              :value="m.majorId"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="batchAdmitForm.remark" type="textarea" :rows="3" maxlength="500" show-word-limit />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="batchAdmitDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="submitting" @click="handleBatchAdmit">确认录取</el-button>
       </template>
     </el-dialog>
 
@@ -220,13 +285,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
-import { queryStudents, type StudentQuery, type Student, directAdmission, conditionalAdmission, batchReject } from '@/api/student'
+import axios from '@/api/axios'
+import { queryStudents, getStudentStatusCounts, type StudentQuery, type Student, directAdmission, conditionalAdmission, batchReject, batchAdmit } from '@/api/student'
 import { getSchools } from '@/api/school'
+import { getSupplementRounds, type SupplementRound } from '@/api/supplement'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -237,6 +304,43 @@ const selectedIds = ref<string[]>([])
 const tableRef = ref()
 
 const dateRange = ref<string[]>([])
+const rounds = ref<SupplementRound[]>([])
+
+function getActiveRound(): SupplementRound | undefined {
+  return rounds.value.find(r => r.status === 'UPCOMING')
+}
+
+function formatRoundTime(iso: string) {
+  if (!iso) return '-'
+  const d = new Date(iso)
+  return `${d.getMonth() + 1}.${d.getDate()}`
+}
+
+function roundTagClass(r: SupplementRound) {
+  if (r.status === 'UPCOMING') return 'round-active'
+  if (r.status === 'ENDED') return 'round-ended'
+  return ''
+}
+
+const sortedRounds = computed(() =>
+  [...rounds.value].sort((a, b) => a.roundNumber - b.roundNumber)
+)
+
+const selectedRound = computed(() =>
+  rounds.value.find(r => r.roundNumber === query.round)
+)
+
+function formatRoundTimeFull(iso: string) {
+  if (!iso) return '-'
+  return new Date(iso).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  })
+}
 
 // 院校选项（OP_ADMIN 用）
 const schoolOptions = ref<any[]>([])
@@ -261,13 +365,36 @@ const statusOptions = [
   { value: 'INVALIDATED', label: '录取已失效' },
 ]
 
-// 快捷状态标签
+const statusLabelMap = Object.fromEntries(statusOptions.map(s => [s.value, s.label]))
+
+// 快捷状态标签（与后端统计口径一致）
 const quickStatusTags = [
   { value: 'PENDING', label: '待处理' },
   { value: 'CONDITIONAL', label: '有条件录取' },
-  { value: 'ADMITTED', label: '已录取' },
+  { value: 'ADMITTED', label: '已录取（待确认）' },
   { value: 'CONFIRMED', label: '已确认' },
 ]
+
+// 全量状态统计（来自后端，不受当前页限制）
+const statusCountMap = ref<Map<string, number>>(new Map())
+
+async function fetchStatusCounts() {
+  try {
+    const res = await getStudentStatusCounts()
+    const counts = new Map<string, number>()
+    for (const item of res.data.data || []) {
+      counts.set(item.status, item.count)
+    }
+    statusCountMap.value = counts
+  } catch {
+    // fallback to local count
+    statusCountMap.value = new Map()
+  }
+}
+
+function getStatusCount(status: string): number {
+  return statusCountMap.value.get(status) || 0
+}
 
 const hasConditional = computed(() =>
   tableData.value.some(row => row.status === 'CONDITIONAL')
@@ -295,11 +422,28 @@ function formatDeadline(iso: string) {
   return new Date(iso).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
 }
 
+function formatPushTime(iso: string) {
+  if (!iso) return '-'
+  return new Date(iso).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  })
+}
+
 const majorOptions = ref<any[]>([])
 
 // 录取对话框
 const admitDialogVisible = ref(false)
 const admitForm = reactive({ pushId: '', majorId: '', remark: '' })
+
+// 批量录取
+const batchAdmitDialogVisible = ref(false)
+const batchAdmitForm = reactive({ majorId: '', remark: '' })
+
 const submitting = ref(false)
 
 // 有条件录取
@@ -318,6 +462,30 @@ async function loadSchools() {
   } catch { /* ignore */ }
 }
 
+async function loadRounds() {
+  try {
+    const res = await getSupplementRounds()
+    rounds.value = res.data.data || []
+    // 只有非 URL 参数跳转时，才默认选中正在进行的轮次
+    const hasRoundParam = !!route.query.round
+    if (!hasRoundParam) {
+      const active = getActiveRound()
+      if (active) {
+        query.round = active.roundNumber
+      }
+    }
+  } catch { /* ignore */ }
+}
+
+function toggleRound(r: SupplementRound) {
+  if (query.round === r.roundNumber) {
+    query.round = undefined
+  } else {
+    query.round = r.roundNumber
+  }
+  search()
+}
+
 async function search() {
   loading.value = true
   try {
@@ -332,6 +500,8 @@ async function search() {
   } finally {
     loading.value = false
   }
+  // 同时更新快捷标签的统计数（全量，不受分页限制）
+  fetchStatusCounts()
 }
 
 function reset() {
@@ -380,6 +550,29 @@ async function handleAdmit() {
     await directAdmission({ pushId: admitForm.pushId, majorId: admitForm.majorId, remark: admitForm.remark })
     ElMessage.success('录取成功')
     admitDialogVisible.value = false
+    search()
+  } finally {
+    submitting.value = false
+  }
+}
+
+function openBatchAdmitDialog() {
+  batchAdmitForm.majorId = ''
+  batchAdmitForm.remark = ''
+  batchAdmitDialogVisible.value = true
+}
+
+async function handleBatchAdmit() {
+  if (!batchAdmitForm.majorId) {
+    ElMessage.warning('请选择录取专业')
+    return
+  }
+  submitting.value = true
+  try {
+    await batchAdmit({ pushIds: selectedIds.value, majorId: batchAdmitForm.majorId, remark: batchAdmitForm.remark })
+    ElMessage.success(`批量录取成功，共 ${selectedIds.value.length} 名考生`)
+    batchAdmitDialogVisible.value = false
+    selectedIds.value = []
     search()
   } finally {
     submitting.value = false
@@ -470,15 +663,21 @@ onMounted(() => {
   if (roundParam) {
     query.round = Number(roundParam)
   }
+  loadRounds()
   loadSchools()
   search()
 })
 </script>
 
 <style scoped lang="scss">
+.role-notice { margin-bottom: 12px; }
 .header-actions { display: flex; gap: 8px; }
 .filter-card { margin-bottom: 16px; }
 
+.has-data {
+  font-weight: 600;
+  color: #409eff;
+}
 .quick-status {
   display: flex;
   align-items: center;
@@ -497,6 +696,22 @@ onMounted(() => {
 }
 
 .deadline-text { color: #e6a23c; font-weight: 600; font-size: 13px; }
+
+.round-status {
+  font-size: 12px;
+  color: #67c23a;
+  margin-left: 4px;
+  &.ended { color: #909399; }
+}
+
+.round-time-info {
+  padding: 8px 12px;
+  background: #f4f4f5;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #606266;
+  margin-top: 8px;
+}
 
 .full-width { width: 100%; }
 

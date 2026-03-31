@@ -2,6 +2,16 @@
   <div class="login-page">
     <div class="login-card">
       <div class="login-header">
+        <div class="login-logo">
+          <svg class="logo-icon" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="48" height="48" rx="12" fill="#667eea"/>
+            <path d="M24 12L8 20L24 28L40 20L24 12Z" fill="white" opacity="0.9"/>
+            <path d="M8 28V34L24 40L40 34V28" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M16 34V24" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            <path d="M24 28V18" stroke="white" stroke-width="2" stroke-linecap="round"/>
+            <path d="M32 34V24" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
         <h1 class="login-title">院校管理平台</h1>
         <p class="login-subtitle">中国政府奖学金项目招生管理系统</p>
       </div>
@@ -46,11 +56,12 @@
         </el-button>
       </el-form>
 
-      <div class="login-footer">
+      <!-- 忘记密码功能待实现，暂隐藏 -->
+      <!-- <div class="login-footer">
         <el-link type="primary" :underline="false" @click="router.push('/forgot-password')">
           忘记密码？
         </el-link>
-      </div>
+      </div> -->
     </div>
   </div>
 </template>
@@ -119,8 +130,19 @@ async function handleLogin() {
   margin-bottom: 32px;
 }
 
+.login-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.logo-icon {
+  width: 56px;
+  height: 56px;
+}
+
 .login-title {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   color: #303133;
   margin-bottom: 8px;

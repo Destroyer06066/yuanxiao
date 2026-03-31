@@ -9,9 +9,14 @@ export const usePermissionStore = defineStore('permission', () => {
 
   async function fetchModules() {
     if (loaded.value) return
-    const { data } = await getPermissionTree()
-    modules.value = data
-    loaded.value = true
+    try {
+      const { data } = await getPermissionTree()
+      modules.value = data
+      loaded.value = true
+    } catch {
+      // SCHOOL_ADMIN/STAFF 无权访问全量权限树，静默忽略
+      loaded.value = true
+    }
   }
 
   return { modules, loaded, fetchModules }

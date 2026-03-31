@@ -27,6 +27,13 @@ public class StatisticsController {
         return Result.ok(statisticsService.getKpis(schoolId));
     }
 
+    @Operation(summary = "可用年份列表")
+    @GetMapping("/statistics/years")
+    public Result<List<Integer>> getAvailableYears() {
+        UUID schoolId = SecurityContext.isOpAdmin() ? null : SecurityContext.getSchoolId();
+        return Result.ok(statisticsService.getAvailableYears(schoolId));
+    }
+
     @Operation(summary = "月度录取趋势")
     @GetMapping("/statistics/trend")
     public Result<List<Map<String, Object>>> getTrend(

@@ -8,4 +8,10 @@
         ORDER BY created_at DESC
     </select>
 
+    <update id="updateIsRead">
+        UPDATE notification
+        SET is_read = #{isRead}
+        WHERE notification_id = #{notificationId}
+    </update>
+
 </mapper>

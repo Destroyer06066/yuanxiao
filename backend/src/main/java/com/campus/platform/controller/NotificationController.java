@@ -44,11 +44,7 @@ public class NotificationController {
     @Operation(summary = "标为已读")
     @PatchMapping("/{notificationId}/read")
     public Result<Void> markRead(@PathVariable UUID notificationId) {
-        Notification n = notificationRepository.selectById(notificationId);
-        if (n != null) {
-            n.setIsRead(true);
-            notificationRepository.updateById(n);
-        }
+        notificationRepository.updateIsRead(notificationId, true);
         return Result.ok();
     }
 

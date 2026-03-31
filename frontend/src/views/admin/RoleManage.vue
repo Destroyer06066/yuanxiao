@@ -69,43 +69,60 @@
         <div class="permission-matrix">
           <div class="matrix-header">
             <span>权限分配</span>
-            <template v-if="!selectedRole.isPreset">
-              <el-button v-if="!isEditing" type="primary" size="small" @click="startEdit">
+            <template v-if="!isEditing">
+              <el-button type="primary" size="small" @click="startEdit">
                 编辑权限
               </el-button>
-              <template v-else>
-                <el-button size="small" @click="cancelEdit">取消</el-button>
-                <el-button type="primary" size="small" @click="savePermissions" :loading="saving">
-                  保存
-                </el-button>
-              </template>
+            </template>
+            <template v-else>
+              <el-button size="small" @click="cancelEdit">取消</el-button>
+              <el-button type="primary" size="small" @click="savePermissions" :loading="saving">
+                保存
+              </el-button>
             </template>
           </div>
 
-          <el-collapse v-model="activeModules">
-            <el-collapse-item
-              v-for="mod in permissionModules"
-              :key="mod.module"
-              :title="mod.moduleLabel"
-              :name="mod.module"
+          <!-- 三级权限矩阵：分组 → 菜单项 → 按钮权限 -->
+          <div class="perm-matrix-3level">
+            <div
+              v-for="group in permissionDomains"
+              :key="group.label"
+              class="perm-group"
             >
-              <div class="perm-list">
+              <div class="group-header">
+                <el-icon><FolderOpened /></el-icon>
+                {{ group.label }}
+              </div>
+              <div class="group-items">
                 <div
-                  v-for="perm in mod.permissions"
-                  :key="perm.id"
-                  class="perm-row"
+                  v-for="menuItem in group.items"
+                  :key="menuItem.item"
+                  class="menu-item-row"
                 >
-                  <el-checkbox
-                    v-model="perm.isExplicit"
-                    :disabled="isCheckboxDisabled(perm)"
-                  >
-                    {{ perm.label }}
-                  </el-checkbox>
-                  <el-tag v-if="perm.isRestricted" size="small" type="warning">系统保留</el-tag>
+                  <div class="menu-item-label">
+                    <el-icon><Document /></el-icon>
+                    {{ menuItem.item }}
+                  </div>
+                  <div class="menu-item-perms">
+                    <div
+                      v-for="perm in menuItem.perms"
+                      :key="perm.id || perm.action"
+                      class="perm-cell"
+                    >
+                      <el-checkbox
+                        :model-value="perm.isExplicit"
+                        :disabled="isCheckboxDisabled(perm)"
+                        @update:model-value="(val: boolean) => togglePerm(menuItem.module, perm.action, val)"
+                      >
+                        {{ perm.label }}
+                      </el-checkbox>
+                      <el-tag v-if="perm.isRestricted" size="small" type="warning">系统保留</el-tag>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </el-collapse-item>
-          </el-collapse>
+            </div>
+          </div>
         </div>
       </template>
 
@@ -154,7 +171,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, reactive } from 'vue'
-import { Plus, Lock } from '@element-plus/icons-vue'
+import { Plus, Lock, FolderOpened, Document } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import {
@@ -170,6 +187,186 @@ import type { CreateRoleRequest, UpdateRoleRequest } from '@/api/role'
 const roles = ref<Role[]>([])
 const selectedRole = ref<Role | null>(null)
 const permissionModules = ref<PermissionModule[]>([])
+
+// 第一级 → 第二级 → 第三级映射（和左侧侧边栏完全对齐）
+// 格式: { group: '侧边栏分组', item: '侧边栏菜单项', module: '数据库模块', action?: '具体动作' }
+const MENU_ITEMS: Array<{
+  group: string
+  item: string
+  module: string
+  action?: string
+  // 该菜单项对应的所有 action 权限（展开显示）
+  actions?: string[]
+}> = [
+  // 招生管理
+  { group: '招生管理', item: '考生列表', module: 'checkin', actions: ['read'] },
+  { group: '招生管理', item: '报到管理', module: 'checkin', actions: ['read', 'material', 'confirm'] },
+  { group: '招生管理', item: '数据统计', module: 'report', actions: ['read'] },
+  // 院校管理
+  { group: '院校管理', item: '院校列表', module: 'school', actions: ['read', 'create', 'edit', 'disable'] },
+  // 配置管理
+  { group: '配置管理', item: '专业配置', module: 'major', actions: ['read', 'create', 'edit', 'disable'] },
+  { group: '配置管理', item: '名额管理', module: 'quota', actions: ['read', 'create', 'edit'] },
+  { group: '配置管理', item: '补录管理', module: 'supplement', actions: ['read'] },
+  // 数据
+  { group: '数据', item: '数据统计', module: 'report', actions: ['read'] },
+  { group: '数据', item: '成绩核验', module: 'verification', actions: ['read', 'create'] },
+  // 系统
+  { group: '系统', item: '账号管理', module: 'account', actions: ['read', 'create', 'edit', 'disable'] },
+  { group: '系统', item: '角色管理', module: 'role', actions: ['read', 'create', 'edit', 'disable'] },
+]
+
+// 第二级 → 第三级权限
+// 格式: item → { action: string, label: string, restricted?: boolean }
+type PermissionItem = {
+  action: string
+  label: string
+  isRestricted?: boolean
+}
+
+const ITEM_PERMISSIONS: Record<string, PermissionItem[]> = {
+  '考生列表': [
+    { action: 'read', label: '查看' },
+  ],
+  '报到管理': [
+    { action: 'read', label: '查看报到' },
+    { action: 'material', label: '材料收件登记' },
+    { action: 'confirm', label: '确认报到' },
+  ],
+  '补录管理': [
+    { action: 'read', label: '查看' },
+  ],
+  '数据统计': [
+    { action: 'read', label: '查看报表' },
+  ],
+  '院校列表': [
+    { action: 'read', label: '查看院校' },
+    { action: 'create', label: '新增院校' },
+    { action: 'edit', label: '编辑院校' },
+    { action: 'disable', label: '停用/启用院校' },
+  ],
+  '专业配置': [
+    { action: 'read', label: '查看专业' },
+    { action: 'create', label: '新增专业' },
+    { action: 'edit', label: '编辑专业' },
+    { action: 'disable', label: '停用/启用专业' },
+  ],
+  '名额管理': [
+    { action: 'read', label: '查看名额' },
+    { action: 'create', label: '新增名额' },
+    { action: 'edit', label: '编辑名额' },
+  ],
+  '补录管理': [
+    { action: 'read', label: '查看补录' },
+  ],
+  '成绩核验': [
+    { action: 'read', label: '查看核验' },
+    { action: 'create', label: '提交核验' },
+  ],
+  '账号管理': [
+    { action: 'read', label: '查看账号' },
+    { action: 'create', label: '新增账号' },
+    { action: 'edit', label: '编辑账号' },
+    { action: 'disable', label: '禁用/启用账号' },
+  ],
+  '角色管理': [
+    { action: 'read', label: '查看角色' },
+    { action: 'create', label: '新增角色' },
+    { action: 'edit', label: '编辑角色' },
+    { action: 'disable', label: '停用/启用角色' },
+  ],
+}
+
+const RESTRICTED_SET = new Set(['account:create', 'account:edit', 'account:disable'])
+
+// 三级结构
+type PermRow = {
+  action: string
+  label: string
+  id: string
+  isRestricted: boolean
+  isExplicit: boolean
+}
+type MenuItemRow = {
+  item: string
+  module: string
+  perms: PermRow[]
+}
+type GroupRow = {
+  label: string
+  items: MenuItemRow[]
+}
+
+// 从 selectedRole.permissions 读取 isExplicit 状态
+const rolePermMap = computed(() => {
+  const m = new Map<string, any>()
+  if (!selectedRole.value) return m
+  for (const p of selectedRole.value.permissions) {
+    m.set(`${p.module}:${p.action}`, p)
+  }
+  return m
+})
+
+// 从 permissionModules 构建三级结构（以 selectedRole 的权限为准）
+const permissionDomains = computed((): GroupRow[] => {
+  if (!permissionModules.value.length) return []
+
+  // 建立 module:action → PermissionDTO 的索引（全局权限元数据：id、label 等）
+  const permMetaMap = new Map<string, any>()
+  for (const mod of permissionModules.value) {
+    for (const p of mod.permissions) {
+      permMetaMap.set(`${p.module}:${p.action}`, p)
+    }
+  }
+
+  const groupMap = new Map<string, GroupRow>()
+  for (const entry of MENU_ITEMS) {
+    const groupKey = entry.group
+    const itemKey = entry.item
+    const moduleKey = entry.module
+    const actions = entry.actions || []
+
+    const perms: PermRow[] = actions.map(action => {
+      const key = `${moduleKey}:${action}`
+      const meta = permMetaMap.get(key)
+
+      // 编辑模式：读 editingModules
+      if (editingModules.value.length > 0) {
+        const editing = editingModules.value
+          .flatMap((m: any) => m.permissions)
+          .find((p: any) => p.module === moduleKey && p.action === action)
+        return {
+          action,
+          label: ITEM_PERMISSIONS[itemKey]?.find(p => p.action === action)?.label || meta?.label || action,
+          id: meta?.id || '',
+          isRestricted: RESTRICTED_SET.has(key),
+          isExplicit: editing ? (editing as any).isExplicit : false,
+        }
+      }
+
+      // 非编辑模式：读 selectedRole.permissions
+      const rolePerm = rolePermMap.value.get(key)
+      return {
+        action,
+        label: ITEM_PERMISSIONS[itemKey]?.find(p => p.action === action)?.label || meta?.label || action,
+        id: meta?.id || '',
+        isRestricted: RESTRICTED_SET.has(key),
+        isExplicit: rolePerm ? !!(rolePerm as any).isExplicit : false,
+      }
+    })
+
+    if (!groupMap.has(groupKey)) {
+      groupMap.set(groupKey, { label: groupKey, items: [] })
+    }
+    groupMap.get(groupKey)!.items.push({
+      item: itemKey,
+      module: moduleKey,
+      perms,
+    })
+  }
+
+  return Array.from(groupMap.values())
+})
 
 // 编辑状态
 const isEditing = ref(false)
@@ -193,9 +390,6 @@ const formRules: FormRules = {
   name: [{ required: true, message: '请输入角色名称', trigger: 'blur' }],
   presetKey: [{ required: true, message: '请选择继承模板', trigger: 'change' }],
 }
-
-// 折叠
-const activeModules = ref<string[]>([])
 
 const presetRoles = computed(() => roles.value.filter(r => r.isPreset))
 const customRoles = computed(() => roles.value.filter(r => !r.isPreset))
@@ -232,8 +426,15 @@ function getPresetTagType(key: string): '' | 'primary' | 'success' | 'warning' {
 }
 
 function isCheckboxDisabled(perm: { isRestricted?: boolean }) {
-  if (!selectedRole.value?.isPreset) return false
-  return true
+  // 系统保留权限不可编辑
+  return !!perm.isRestricted
+}
+
+function togglePerm(module: string, action: string, value: boolean) {
+  const mod = editingModules.value.find(m => m.module === module)
+  if (!mod) return
+  const perm = mod.permissions.find((p: any) => p.module === module && p.action === action)
+  if (perm) (perm as any).isExplicit = value
 }
 
 function openCreateDialog() {
@@ -465,20 +666,86 @@ async function savePermissions() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
   font-weight: 600;
   font-size: 14px;
 }
 
-.perm-list {
+/* 三级权限矩阵 */
+.perm-matrix-3level {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
-.perm-row {
+.perm-group {
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.group-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  padding: 10px 14px;
+  background: #f5f7fa;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.group-header .el-icon {
+  color: #409eff;
+}
+
+.group-items {
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-item-row {
+  display: flex;
+  align-items: flex-start;
+  padding: 10px 14px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.menu-item-row:last-child {
+  border-bottom: none;
+}
+
+.menu-item-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 130px;
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #606266;
+  padding-top: 2px;
+}
+
+.menu-item-label .el-icon {
+  color: #909399;
+}
+
+.menu-item-perms {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+
+.perm-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.perm-cell .el-checkbox {
+  font-size: 13px;
 }
 </style>

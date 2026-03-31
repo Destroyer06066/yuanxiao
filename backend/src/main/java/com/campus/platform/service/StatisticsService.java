@@ -27,6 +27,22 @@ public class StatisticsService {
     private final MajorRepository majorRepository;
 
     /**
+     * 返回有数据的年份列表
+     */
+    public List<Integer> getAvailableYears(UUID schoolId) {
+        List<Integer> years = candidatePushRepository.findDistinctYears(schoolId);
+        int currentYear = java.time.LocalDate.now().getYear();
+        // 确保当前年份在列表中
+        if (years.isEmpty() || !years.contains(currentYear)) {
+            years = new java.util.ArrayList<>(years);
+            if (!years.contains(currentYear)) {
+                years.add(0, currentYear);
+            }
+        }
+        return years;
+    }
+
+    /**
      * 返回 KPI 指标卡数据
      */
     public Map<String, Object> getKpis(UUID schoolId) {
@@ -37,16 +53,22 @@ public class StatisticsService {
         long confirmed = candidatePushRepository.selectCount(buildStatusFilter(schoolId, CandidateStatus.CONFIRMED));
         long checkedIn = candidatePushRepository.selectCount(buildStatusFilter(schoolId, CandidateStatus.CHECKED_IN));
 
-        // 同比（简化：与去年相比）
+        // 同比（与去年相比）
         int thisYear = LocalDate.now().getYear();
         long totalLastYear = countByYear(schoolId, thisYear - 1);
+        long admittedLastYear = countByStatusYear(schoolId, CandidateStatus.ADMITTED, thisYear - 1);
+        long confirmedLastYear = countByStatusYear(schoolId, CandidateStatus.CONFIRMED, thisYear - 1);
+        long checkedInLastYear = countByStatusYear(schoolId, CandidateStatus.CHECKED_IN, thisYear - 1);
 
         return Map.of(
                 "totalPushed", totalPushed,
                 "admitted", admitted,
                 "confirmed", confirmed,
                 "checkedIn", checkedIn,
-                "totalLastYear", totalLastYear
+                "totalLastYear", totalLastYear,
+                "admittedLastYear", admittedLastYear,
+                "confirmedLastYear", confirmedLastYear,
+                "checkedInLastYear", checkedInLastYear
         );
     }
 
@@ -104,9 +126,10 @@ public class StatisticsService {
 
         String[][] statusConfig = {
                 { CandidateStatus.PENDING.name(), "待处理", "#909399" },
-                { CandidateStatus.ADMITTED.name(), "已录取", "#409eff" },
-                { CandidateStatus.CONDITIONAL.name(), "有条件录取", "#e6a23c" },
+                { CandidateStatus.CONDITIONAL.name(), "有条件录取中", "#e6a23c" },
+                { CandidateStatus.ADMITTED.name(), "已录取（待确认）", "#409eff" },
                 { CandidateStatus.CONFIRMED.name(), "已确认", "#67c23a" },
+                { CandidateStatus.MATERIAL_RECEIVED.name(), "材料已收", "#9c27b0" },
                 { CandidateStatus.CHECKED_IN.name(), "已报到", "#25a861" },
                 { CandidateStatus.REJECTED.name(), "已拒绝", "#f56c6c" },
                 { CandidateStatus.INVALIDATED.name(), "已失效", "#c0c4cc" },
@@ -328,6 +351,8 @@ public class StatisticsService {
             majorStats.computeIfAbsent(p.getAdmissionMajorId(), k -> {
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("majorId", k);
+                // 补充专业名称
+                majorRepository.findById(k).ifPresent(major -> m.put("majorName", major.getMajorName()));
                 m.put("admitted", 0L);
                 m.put("confirmed", 0L);
                 m.put("checkedIn", 0L);
@@ -370,6 +395,15 @@ public class StatisticsService {
         Instant start = LocalDate.of(year, 1, 1).atStartOfDay(ZoneId.systemDefault()).toInstant();
         Instant end = LocalDateTime.of(year, 12, 31, 23, 59, 59).atZone(ZoneId.systemDefault()).toInstant();
         LambdaQueryWrapper<CandidatePush> q = buildSchoolFilter(schoolId);
+        q.between(CandidatePush::getPushedAt, start, end);
+        return candidatePushRepository.selectCount(q);
+    }
+
+    private long countByStatusYear(UUID schoolId, CandidateStatus status, int year) {
+        Instant start = LocalDate.of(year, 1, 1).atStartOfDay(ZoneId.systemDefault()).toInstant();
+        Instant end = LocalDateTime.of(year, 12, 31, 23, 59, 59).atZone(ZoneId.systemDefault()).toInstant();
+        LambdaQueryWrapper<CandidatePush> q = buildSchoolFilter(schoolId);
+        q.eq(CandidatePush::getStatus, status.name());
         q.between(CandidatePush::getPushedAt, start, end);
         return candidatePushRepository.selectCount(q);
     }

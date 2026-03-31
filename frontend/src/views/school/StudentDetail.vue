@@ -29,7 +29,7 @@
             <!-- 状态标签 -->
             <div class="status-row">
               <el-tag :class="'status-tag ' + student?.status" size="large">
-                {{ student?.statusDesc || student?.status }}
+                {{ statusLabelMap[student?.status] || student?.status }}
               </el-tag>
               <span v-if="student?.pushRound && student.pushRound > 0" class="round-tag">第 {{ student.pushRound }} 轮补录</span>
             </div>
@@ -41,12 +41,14 @@
 
             <!-- PENDING 状态操作 -->
             <template v-if="student?.status === 'PENDING'">
-              <el-button type="success" class="action-btn" @click="openAdmitDialog">
-                直接录取
-              </el-button>
-              <el-button type="warning" class="action-btn" @click="openConditionalDialog">
-                有条件录取
-              </el-button>
+              <el-button-group class="action-btn-group">
+                <el-button type="success" @click="openAdmitDialog">
+                  直接录取
+                </el-button>
+                <el-button type="warning" @click="openConditionalDialog">
+                  有条件录取
+                </el-button>
+              </el-button-group>
               <el-button type="danger" class="action-btn" @click="openRejectDialog">
                 拒绝
               </el-button>
@@ -112,7 +114,7 @@
           <div class="action-section" v-if="authStore.isOpAdmin">
             <h4 class="section-title">查看模式</h4>
             <el-alert
-              title="运营管理员可查看考生详情（只读）"
+              title="运营管理员仅可查看考生详情，招生操作（录取/有条件录取/拒绝）由各院校管理员负责"
               type="info"
               :closable="false"
               show-icon
@@ -124,15 +126,18 @@
       <!-- 分科成绩 -->
       <el-card class="info-card" v-if="subjectColumns.length > 0">
         <h4 class="section-title">分科成绩</h4>
-        <el-table :data="[{}]" stripe size="small">
+        <el-table :data="[student]" stripe size="small">
           <el-table-column
             v-for="col in subjectColumns"
             :key="col.prop"
             :label="col.label"
-            :prop="col.prop"
             width="120"
             align="center"
-          />
+          >
+            <template #default="{ row }">
+              {{ row.subjectScores?.[col.prop] ?? '-' }}
+            </template>
+          </el-table-column>
           <el-table-column label="总分" width="100" align="center">
             <template #default>
               <strong>{{ student?.totalScore }}</strong>
@@ -175,7 +180,13 @@
             </div>
           </el-timeline-item>
         </el-timeline>
-        <el-empty v-else description="暂无操作记录" />
+        <EmptyState
+          v-else
+          title="暂无操作记录"
+          description="对该考生的录取、拒绝等操作会显示在时间线上"
+          icon="Clock"
+          size="medium"
+        />
       </el-card>
     </div>
 
@@ -263,6 +274,7 @@
 </template>
 
 <script setup lang="ts">
+import EmptyState from '@/components/EmptyState.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -281,6 +293,17 @@ const student = ref<any>(null)
 const timeline = ref<any[]>([])
 const majorOptions = ref<any[]>([])
 const submitting = ref(false)
+
+const statusLabelMap: Record<string, string> = {
+  PENDING: '待处理',
+  CONDITIONAL: '有条件录取中',
+  ADMITTED: '已录取（待确认）',
+  CONFIRMED: '已确认',
+  MATERIAL_RECEIVED: '材料已收',
+  CHECKED_IN: '已报到',
+  REJECTED: '已拒绝',
+  INVALIDATED: '录取已失效',
+}
 
 const canOperate = computed(() =>
   ['PENDING', 'CONDITIONAL', 'CONFIRMED', 'MATERIAL_RECEIVED', 'ADMITTED'].includes(student.value?.status || ''))
@@ -512,6 +535,15 @@ onMounted(reload)
   min-width: 220px;
   border-left: 1px solid #ebeef5;
   padding-left: 24px;
+}
+
+.action-btn-group {
+  display: flex;
+  width: 100%;
+  margin-bottom: 8px;
+  :deep(.el-button) {
+    flex: 1;
+  }
 }
 
 .action-btn {

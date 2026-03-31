@@ -68,6 +68,15 @@ export const conditionalAdmission = (data: ConditionalAdmissionRequest) =>
 export const batchReject = (pushIds: string[]) =>
   axios.post('/v1/students/batch-reject', { pushIds })
 
+export interface BatchAdmitRequest {
+  pushIds: string[]
+  majorId: string
+  remark?: string
+}
+
+export const batchAdmit = (data: BatchAdmitRequest) =>
+  axios.post('/v1/students/batch-admit', data)
+
 export const searchStudents = (keyword: string) =>
   axios.get<Result<Student[]>>('/v1/students/search', { params: { keyword } })
 
@@ -85,3 +94,6 @@ export const receiveMaterial = (pushId: string, note?: string) =>
 
 export const confirmCheckin = (pushId: string, note?: string) =>
   axios.post('/v1/checkins/checkin', { pushId, note })
+
+export const getStudentStatusCounts = () =>
+  axios.get<Result<Array<{ status: string; label: string; color: string; count: number }>>>('/v1/statistics/status-dist')

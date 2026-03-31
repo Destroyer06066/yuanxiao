@@ -22,6 +22,15 @@
         </el-table-column>
       </el-table>
 
+      <!-- 空状态 -->
+      <EmptyState
+        v-if="list.length === 0 && !loading"
+        title="暂无分数线配置"
+        description="请先配置各专业的录取分数线"
+        icon="Tickets"
+        action="新增分数线"
+        @action="openCreate"
+      />
       <!-- 分页 -->
       <el-pagination
         v-model:current-page="query.page"
@@ -56,7 +65,7 @@
           <el-input v-model="form.subject" placeholder="请输入科目名称，如：文科综合" maxlength="50" />
         </el-form-item>
         <el-form-item label="最低分" prop="minScore">
-          <el-input-number v-model="form.minScore" :min="0" :max="1000" :precision="1" style="width: 100%" />
+          <el-input-number v-model="form.minScore" :min="0" :max="100" :precision="1" style="width: 100%" />
         </el-form-item>
       </el-form>
       <template #footer>

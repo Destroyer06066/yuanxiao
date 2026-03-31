@@ -11,4 +11,6 @@ import java.util.UUID;
 public interface NotificationRepository extends BaseMapper<Notification> {
 
     IPage<Notification> findByRecipientId(Page<Notification> page, @Param("recipientId") UUID recipientId);
+
+    int updateIsRead(@Param("notificationId") UUID notificationId, @Param("isRead") boolean isRead);
 }

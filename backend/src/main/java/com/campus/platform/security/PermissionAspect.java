@@ -20,6 +20,7 @@ import java.util.stream.Collectors;
 @Order(1)
 public class PermissionAspect {
 
+    // 处理方法级 RequireRole 注解
     @Before("@annotation(requireRole)")
     public void checkRole(JoinPoint joinPoint, RequireRole requireRole) {
         AccountPrincipal principal = SecurityContext.get();
@@ -37,6 +38,7 @@ public class PermissionAspect {
         }
     }
 
+    // 处理方法级 RequirePermission 注解
     @Before("@annotation(requirePermission)")
     public void checkPermission(JoinPoint joinPoint, RequirePermission requirePermission) {
         AccountPrincipal principal = SecurityContext.get();

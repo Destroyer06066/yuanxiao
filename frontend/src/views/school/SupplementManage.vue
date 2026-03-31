@@ -59,7 +59,14 @@
       </el-col>
     </el-row>
 
-    <el-empty v-if="rounds.length === 0" description="暂无比进行中的补录" />
+    <EmptyState
+      v-if="rounds.length === 0"
+      title="暂无补录轮次"
+      description="请创建新的补录轮次以继续招生"
+      icon="Tickets"
+      action="新建补录轮次"
+      @action="openCreate"
+    />
 
     <!-- 新建轮次对话框 -->
     <el-dialog v-model="createDialogVisible" title="新建补录轮次" width="480px">

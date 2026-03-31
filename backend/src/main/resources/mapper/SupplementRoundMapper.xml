@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.campus.platform.repository.SupplementRoundRepository">
+
+    <resultMap id="BaseResultMap" type="com.campus.platform.entity.SupplementRound">
+        <id column="round_id" property="roundId" jdbcType="OTHER" typeHandler="com.campus.platform.handler.UUIDJdbcTypeHandler"/>
+        <result column="round_number" property="roundNumber"/>
+        <result column="start_time" property="startTime"/>
+        <result column="end_time" property="endTime"/>
+        <result column="status" property="status"/>
+        <result column="remark" property="remark"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="BaseResultMap">
+        SELECT round_id, round_number, start_time, end_time, status, remark, created_at, updated_at
+        FROM supplement_round
+        ORDER BY round_number DESC
+    </select>
+
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT round_id, round_number, start_time, end_time, status, remark, created_at, updated_at
+        FROM supplement_round
+        WHERE round_id = #{roundId, typeHandler=com.campus.platform.handler.UUIDJdbcTypeHandler}
+    </select>
+
+    <select id="findActive" resultMap="BaseResultMap">
+        SELECT round_id, round_number, start_time, end_time, status, remark, created_at, updated_at
+        FROM supplement_round
+        WHERE status = 'ACTIVE'
+        LIMIT 1
+    </select>
+
+</mapper>
