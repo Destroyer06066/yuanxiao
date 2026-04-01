@@ -17,6 +17,7 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -101,6 +102,7 @@ public class QuotaController {
             quota.setTotalQuota(req.getTotalQuota());
             quota.setMinScore(req.getMinScore());
             quota.setMaxScore(req.getMaxScore());
+            quota.setDeadline(req.getDeadline());
             quotaRepository.updateById(quota);
         } else {
             AdmissionQuota quota = new AdmissionQuota();
@@ -110,6 +112,7 @@ public class QuotaController {
             quota.setTotalQuota(req.getTotalQuota());
             quota.setMinScore(req.getMinScore());
             quota.setMaxScore(req.getMaxScore());
+            quota.setDeadline(req.getDeadline());
             quota.setAdmittedCount(0);
             quota.setReservedCount(0);
             quota.setVersion(0);
@@ -127,6 +130,7 @@ public class QuotaController {
                     quota.setTotalQuota(req.getTotalQuota());
                     quota.setMinScore(req.getMinScore());
                     quota.setMaxScore(req.getMaxScore());
+                    quota.setDeadline(req.getDeadline());
                     quotaRepository.updateById(quota);
                 });
         return Result.ok();
@@ -139,6 +143,7 @@ public class QuotaController {
         private Integer year;
         private Integer minScore;
         private Integer maxScore;
+        private Instant deadline;
     }
 
     @Data
@@ -146,5 +151,6 @@ public class QuotaController {
         @Min(0) @NotNull private Integer totalQuota;
         private Integer minScore;
         private Integer maxScore;
+        private Instant deadline;
     }
 }
