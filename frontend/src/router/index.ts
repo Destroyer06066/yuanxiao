@@ -73,6 +73,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '分数线配置', roles: ['SCHOOL_ADMIN', 'SCHOOL_STAFF'] },
       },
       {
+        path: '/brochure',
+        name: 'SchoolBrochureConfig',
+        component: () => import('@/views/school/SchoolBrochureConfig.vue'),
+        meta: { title: '招生简章', roles: ['SCHOOL_ADMIN', 'SCHOOL_STAFF'] },
+      },
+      {
         path: '/supplement',
         name: 'SupplementRounds',
         component: () => import('@/views/school/SupplementRounds.vue'),
