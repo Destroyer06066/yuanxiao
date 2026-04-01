@@ -28,7 +28,15 @@
             </el-menu-item>
             <el-menu-item index="/supplement">
               <el-icon><RefreshRight /></el-icon>
+              <template #title>录取轮次</template>
+            </el-menu-item>
+            <el-menu-item index="/supplements">
+              <el-icon><Message /></el-icon>
               <template #title>补录管理</template>
+            </el-menu-item>
+            <el-menu-item index="/verification">
+              <el-icon><CircleCheck /></el-icon>
+              <template #title>成绩核验</template>
             </el-menu-item>
           </el-sub-menu>
 
@@ -92,6 +100,10 @@
             </el-menu-item>
             <el-menu-item index="/supplement">
               <el-icon><RefreshRight /></el-icon>
+              <template #title>录取轮次</template>
+            </el-menu-item>
+            <el-menu-item index="/supplements">
+              <el-icon><Message /></el-icon>
               <template #title>补录管理</template>
             </el-menu-item>
           </el-sub-menu>

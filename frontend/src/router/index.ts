@@ -74,6 +74,12 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: '/supplement',
+        name: 'SupplementRounds',
+        component: () => import('@/views/school/SupplementRounds.vue'),
+        meta: { title: '录取轮次', roles: ['OP_ADMIN', 'SCHOOL_ADMIN', 'SCHOOL_STAFF'] },
+      },
+      {
+        path: '/supplements',
         name: 'SupplementManage',
         component: () => import('@/views/school/SupplementManage.vue'),
         meta: { title: '补录管理', roles: ['OP_ADMIN', 'SCHOOL_ADMIN', 'SCHOOL_STAFF'] },
@@ -82,7 +88,7 @@ const routes: RouteRecordRaw[] = [
         path: '/verification',
         name: 'ScoreVerification',
         component: () => import('@/views/school/ScoreVerification.vue'),
-        meta: { title: '成绩核验', roles: ['SCHOOL_ADMIN', 'SCHOOL_STAFF'] },
+        meta: { title: '成绩核验', roles: ['OP_ADMIN', 'SCHOOL_ADMIN', 'SCHOOL_STAFF'] },
       },
       {
         path: '/checkin',
