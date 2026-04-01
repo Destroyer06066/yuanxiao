@@ -188,32 +188,40 @@ const roles = ref<Role[]>([])
 const selectedRole = ref<Role | null>(null)
 const permissionModules = ref<PermissionModule[]>([])
 
-// 第一级 → 第二级 → 第三级映射（和左侧侧边栏完全对齐）
-// 格式: { group: '侧边栏分组', item: '侧边栏菜单项', module: '数据库模块', action?: '具体动作' }
+// 第一级 → 第二级 → 第三级映射（和 Layout.vue 侧边栏完全对齐）
+// 格式: { group: '侧边栏分组', item: '侧边栏菜单项', module: '数据库模块', actions: '该菜单项对应的所有 action 权限' }
 const MENU_ITEMS: Array<{
   group: string
   item: string
   module: string
-  action?: string
-  // 该菜单项对应的所有 action 权限（展开显示）
-  actions?: string[]
+  actions: string[]
 }> = [
+  // ========== OP_ADMIN 菜单 ==========
   // 招生管理
-  { group: '招生管理', item: '考生列表', module: 'checkin', actions: ['read'] },
-  { group: '招生管理', item: '报到管理', module: 'checkin', actions: ['read', 'material', 'confirm'] },
-  { group: '招生管理', item: '数据统计', module: 'report', actions: ['read'] },
+  { group: '招生管理', item: '考生列表', module: 'account', actions: ['read'] },
+  { group: '招生管理', item: '录取轮次', module: 'supplement', actions: ['read'] },
+  { group: '招生管理', item: '补录管理', module: 'supplement', actions: ['read'] },
+  { group: '招生管理', item: '成绩核验', module: 'verification', actions: ['read', 'create'] },
+  // 数据统计
+  { group: '数据统计', item: '数据统计', module: 'report', actions: ['read'] },
+  { group: '数据统计', item: '考生统计', module: 'report', actions: ['read'] },
   // 院校管理
   { group: '院校管理', item: '院校列表', module: 'school', actions: ['read', 'create', 'edit', 'disable'] },
-  // 配置管理
-  { group: '配置管理', item: '专业配置', module: 'major', actions: ['read', 'create', 'edit', 'disable'] },
-  { group: '配置管理', item: '名额管理', module: 'quota', actions: ['read', 'create', 'edit'] },
-  { group: '配置管理', item: '补录管理', module: 'supplement', actions: ['read'] },
-  // 数据
-  { group: '数据', item: '数据统计', module: 'report', actions: ['read'] },
-  { group: '数据', item: '成绩核验', module: 'verification', actions: ['read', 'create'] },
+  // 站内通知
+  { group: '站内通知', item: '站内通知', module: 'notification', actions: ['read'] },
   // 系统
   { group: '系统', item: '账号管理', module: 'account', actions: ['read', 'create', 'edit', 'disable'] },
   { group: '系统', item: '角色管理', module: 'role', actions: ['read', 'create', 'edit', 'disable'] },
+  { group: '系统', item: '操作日志', module: 'audit', actions: ['read'] },
+  { group: '系统', item: '系统参数', module: 'system', actions: ['read'] },
+
+  // ========== SCHOOL_ADMIN/STAFF 菜单 ==========
+  // 招生管理
+  { group: '招生管理', item: '报到管理', module: 'checkin', actions: ['read', 'material', 'confirm'] },
+  // 配置管理
+  { group: '配置管理', item: '专业配置', module: 'major', actions: ['read', 'create', 'edit', 'disable'] },
+  { group: '配置管理', item: '名额管理', module: 'quota', actions: ['read', 'create', 'edit'] },
+  { group: '配置管理', item: '招生简章', module: 'brochure', actions: ['read', 'create', 'edit'] },
 ]
 
 // 第二级 → 第三级权限
@@ -225,6 +233,7 @@ type PermissionItem = {
 }
 
 const ITEM_PERMISSIONS: Record<string, PermissionItem[]> = {
+  // 招生管理
   '考生列表': [
     { action: 'read', label: '查看' },
   ],
@@ -233,18 +242,35 @@ const ITEM_PERMISSIONS: Record<string, PermissionItem[]> = {
     { action: 'material', label: '材料收件登记' },
     { action: 'confirm', label: '确认报到' },
   ],
+  '录取轮次': [
+    { action: 'read', label: '查看' },
+  ],
   '补录管理': [
     { action: 'read', label: '查看' },
   ],
+  '成绩核验': [
+    { action: 'read', label: '查看核验' },
+    { action: 'create', label: '提交核验' },
+  ],
+  // 数据统计
   '数据统计': [
     { action: 'read', label: '查看报表' },
   ],
+  '考生统计': [
+    { action: 'read', label: '查看' },
+  ],
+  // 院校管理
   '院校列表': [
     { action: 'read', label: '查看院校' },
     { action: 'create', label: '新增院校' },
     { action: 'edit', label: '编辑院校' },
     { action: 'disable', label: '停用/启用院校' },
   ],
+  // 站内通知
+  '站内通知': [
+    { action: 'read', label: '查看通知' },
+  ],
+  // 配置管理
   '专业配置': [
     { action: 'read', label: '查看专业' },
     { action: 'create', label: '新增专业' },
@@ -256,13 +282,12 @@ const ITEM_PERMISSIONS: Record<string, PermissionItem[]> = {
     { action: 'create', label: '新增名额' },
     { action: 'edit', label: '编辑名额' },
   ],
-  '补录管理': [
-    { action: 'read', label: '查看补录' },
+  '招生简章': [
+    { action: 'read', label: '查看简章' },
+    { action: 'create', label: '新增简章' },
+    { action: 'edit', label: '编辑简章' },
   ],
-  '成绩核验': [
-    { action: 'read', label: '查看核验' },
-    { action: 'create', label: '提交核验' },
-  ],
+  // 系统
   '账号管理': [
     { action: 'read', label: '查看账号' },
     { action: 'create', label: '新增账号' },
@@ -274,6 +299,12 @@ const ITEM_PERMISSIONS: Record<string, PermissionItem[]> = {
     { action: 'create', label: '新增角色' },
     { action: 'edit', label: '编辑角色' },
     { action: 'disable', label: '停用/启用角色' },
+  ],
+  '操作日志': [
+    { action: 'read', label: '查看日志' },
+  ],
+  '系统参数': [
+    { action: 'read', label: '查看参数' },
   ],
 }
 
