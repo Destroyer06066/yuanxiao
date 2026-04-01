@@ -41,14 +41,45 @@ public class OperationLogService {
     }
 
     /**
-     * 获取考生的操作时间线（无真实记录时生成模拟数据）
+     * 获取考生的操作时间线（合并真实记录与模拟数据）
+     * 策略：
+     * 1. 如果无真实记录，生成完整的模拟时间线
+     * 2. 如果有真实记录，以真实记录为主，但补充缺失的 PUSH 记录（基于推送时间）
+     * 3. 确保时间线从 PUSH 开始，按时间排序
      */
     public List<OperationLog> getTimeline(UUID pushId) {
         List<OperationLog> logs = operationLogRepository.findByPushId(pushId);
+
+        // 获取考生推送信息，用于补充 PUSH 记录
+        CandidatePush push = candidatePushRepository.findById(pushId).orElse(null);
+
         if (logs == null || logs.isEmpty()) {
-            // 生成模拟数据
+            // 无真实记录，生成完整的模拟时间线
             return generateMockTimeline(pushId);
         }
+
+        // 有真实记录，检查是否缺少 PUSH 记录
+        boolean hasPush = logs.stream().anyMatch(l -> "PUSH".equals(l.getAction()));
+
+        if (!hasPush && push != null && push.getPushedAt() != null) {
+            // 补充 PUSH mock 记录（使用真实的推送时间）
+            List<OperationLog> result = new ArrayList<>();
+            OperationLog pushLog = createMockLog(pushId, "PUSH", null, "考生提交成绩", push.getPushedAt());
+            result.add(pushLog);
+            result.addAll(logs);
+            // PUSH 记录总是排在最前面，其他记录按时间排序
+            result.sort((a, b) -> {
+                // PUSH 总是排第一
+                if ("PUSH".equals(a.getAction())) return -1;
+                if ("PUSH".equals(b.getAction())) return 1;
+                if (a.getCreatedAt() == null && b.getCreatedAt() == null) return 0;
+                if (a.getCreatedAt() == null) return 1;
+                if (b.getCreatedAt() == null) return -1;
+                return a.getCreatedAt().compareTo(b.getCreatedAt());
+            });
+            return result;
+        }
+
         return logs;
     }
 
