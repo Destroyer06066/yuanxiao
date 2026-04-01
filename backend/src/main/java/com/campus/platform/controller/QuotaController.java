@@ -75,6 +75,7 @@ public class QuotaController {
                         m.put("minScore", q.getMinScore());
                         m.put("maxScore", q.getMaxScore());
                         m.put("deadline", q.getDeadline());
+                        m.put("startTime", q.getStartTime());
                         return m;
                     })
                     .collect(Collectors.toList())
@@ -103,6 +104,7 @@ public class QuotaController {
             quota.setMinScore(req.getMinScore());
             quota.setMaxScore(req.getMaxScore());
             quota.setDeadline(req.getDeadline());
+            quota.setStartTime(req.getStartTime());
             quotaRepository.updateById(quota);
         } else {
             AdmissionQuota quota = new AdmissionQuota();
@@ -113,6 +115,7 @@ public class QuotaController {
             quota.setMinScore(req.getMinScore());
             quota.setMaxScore(req.getMaxScore());
             quota.setDeadline(req.getDeadline());
+            quota.setStartTime(req.getStartTime());
             quota.setAdmittedCount(0);
             quota.setReservedCount(0);
             quota.setVersion(0);
@@ -131,6 +134,7 @@ public class QuotaController {
                     quota.setMinScore(req.getMinScore());
                     quota.setMaxScore(req.getMaxScore());
                     quota.setDeadline(req.getDeadline());
+                    quota.setStartTime(req.getStartTime());
                     quotaRepository.updateById(quota);
                 });
         return Result.ok();
