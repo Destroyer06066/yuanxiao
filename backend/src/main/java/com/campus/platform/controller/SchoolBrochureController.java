@@ -1,6 +1,7 @@
 package com.campus.platform.controller;
 
 import com.campus.platform.common.result.Result;
+import com.campus.platform.entity.SchoolBrochure;
 import com.campus.platform.security.RequireRole;
 import com.campus.platform.security.SecurityContext;
 import com.campus.platform.service.SchoolBrochureService;
