@@ -124,9 +124,9 @@
       </el-card>
 
       <!-- 分科成绩 -->
-      <el-card class="info-card" v-if="subjectColumns.length > 0">
+      <el-card class="info-card">
         <h4 class="section-title">分科成绩</h4>
-        <el-table :data="[student]" stripe size="small">
+        <el-table v-if="subjectColumns.length > 0" :data="[student]" stripe size="small">
           <el-table-column
             v-for="col in subjectColumns"
             :key="col.prop"
@@ -144,6 +144,7 @@
             </template>
           </el-table-column>
         </el-table>
+        <el-empty v-else description="暂无分科成绩" :image-size="60" />
       </el-card>
 
       <!-- 录取信息（已录取时显示） -->

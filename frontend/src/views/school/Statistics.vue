@@ -6,16 +6,6 @@
         <el-select v-model="selectedYear" style="width: 120px" @change="handleYearChange">
           <el-option v-for="y in years" :key="y" :label="y + '年'" :value="y" />
         </el-select>
-        <el-date-picker
-          v-model="selectedMonth"
-          type="month"
-          placeholder="选择月份"
-          style="width: 140px; margin-left: 8px"
-          format="MM月"
-          value-format="YYYY-MM"
-          @change="loadTrend"
-          :clearable="false"
-        />
       </div>
     </div>
 
@@ -37,7 +27,19 @@
       <!-- 录取趋势折线图 -->
       <el-col :span="16">
         <el-card>
-          <template #header><span>录取趋势</span></template>
+          <template #header>
+            <span>录取趋势</span>
+            <el-date-picker
+              v-model="selectedMonth"
+              type="month"
+              placeholder="选择月份"
+              style="width: 140px; margin-left: 12px"
+              format="MM月"
+              value-format="YYYY-MM"
+              @change="loadTrend"
+              :clearable="false"
+            />
+          </template>
           <div v-if="trendLoading" style="height:260px;display:flex;align-items:center;justify-content:center;color:#909399">
             <el-icon class="is-loading"><Loading /></el-icon>&nbsp;加载中...
           </div>

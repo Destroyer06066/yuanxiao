@@ -82,7 +82,7 @@ const configDescriptions: Record<string, string> = {
   sms_code_ttl_seconds: '发送的短信验证码有效期（秒），超时后需重新获取',
   sms_daily_limit: '每个手机号码每天可接收短信验证码的最大次数',
   first_round_confirmation_days: '首轮录取时，考生未确认的有效天数，超过后录取通知自动失效',
-  max_schools_per_candidate: '考生可推送成绩的院校数量上限，超过后不允许继续推送',
+  max_schools_per_candidate: '考生可推送成绩的院校数量上限（按自然年计算，每年重置），超过后不允许继续推送',
   score_validity_days: '考生成绩有效期（天），超过有效期平台不允许推送成绩'
 }
 
