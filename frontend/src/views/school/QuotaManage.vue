@@ -51,6 +51,30 @@
               : '-' }}
           </template>
         </el-table-column>
+        <el-table-column label="录取截止时间" width="160">
+          <template #default="{ row }">
+            <el-popover placement="bottom" :width="280" trigger="click">
+              <template #reference>
+                <span class="deadline-cell" style="cursor: pointer; color: #409eff;">
+                  {{ row.deadline ? formatDeadline(row.deadline) : '点击设置' }}
+                </span>
+              </template>
+              <div style="text-align: center">
+                <el-date-picker
+                  v-model="deadlineDraft"
+                  type="datetime"
+                  placeholder="选择截止时间"
+                  style="width: 100%"
+                  format="YYYY-MM-DD HH:mm"
+                  @change="handleDeadlineChange(row.quotaId)"
+                />
+                <div style="margin-top: 8px">
+                  <el-button size="small" @click="clearDeadline(row.quotaId)">清除</el-button>
+                </div>
+              </div>
+            </el-popover>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
             <el-button v-if="can('quota:edit')" type="primary" link @click="openEdit(row)">编辑</el-button>
@@ -167,6 +191,29 @@ const rules: FormRules = {
   majorId: [{ required: true, message: '请选择专业', trigger: 'change' }],
   year: [{ required: true, message: '请选择年份', trigger: 'change' }],
   totalQuota: [{ required: true, message: '请输入总名额数', trigger: 'blur' }],
+}
+
+// ========== 截止时间 ==========
+const deadlineDraft = ref(null)
+
+function formatDeadline(d: string): string {
+  if (!d) return ''
+  return new Date(d).toLocaleString('zh-CN', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false
+  }).replace(/\//g, '-')
+}
+
+async function handleDeadlineChange(quotaId: string) {
+  await axios.put(`/v1/quotas/${quotaId}`, {
+    deadline: deadlineDraft.value ? new Date(deadlineDraft.value).toISOString() : null
+  })
+  fetchQuotas()
+}
+
+async function clearDeadline(quotaId: string) {
+  await axios.put(`/v1/quotas/${quotaId}`, { deadline: null })
+  fetchQuotas()
 }
 
 function remaining(row: any): number {
@@ -335,6 +382,7 @@ onMounted(() => {
 }
 .quota-zero { color: #f56c6c; font-weight: 700; }
 .quota-warn { color: #e6a23c; font-weight: 600; }
+.deadline-cell:hover { text-decoration: underline; }
 
 :deep(.el-table .quota-zero) { background-color: rgba(245, 108, 108, 0.08) !important; }
 :deep(.el-table .quota-warn) { background-color: rgba(230, 162, 60, 0.08) !important; }
