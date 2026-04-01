@@ -143,6 +143,7 @@ public class QuotaController {
         private Integer year;
         private Integer minScore;
         private Integer maxScore;
+        private Instant startTime;
         private Instant deadline;
     }
 
@@ -151,6 +152,7 @@ public class QuotaController {
         @Min(0) @NotNull private Integer totalQuota;
         private Integer minScore;
         private Integer maxScore;
+        private Instant startTime;
         private Instant deadline;
     }
 }
