@@ -118,6 +118,10 @@
               <el-icon><DataLine /></el-icon>
               <template #title>名额管理</template>
             </el-menu-item>
+            <el-menu-item index="/brochure">
+              <el-icon><Document /></el-icon>
+              <template #title>招生简章</template>
+            </el-menu-item>
           </el-sub-menu>
 
           <el-sub-menu index="data-stats-school">
