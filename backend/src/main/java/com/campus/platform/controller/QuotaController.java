@@ -17,6 +17,8 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -99,13 +101,15 @@ public class QuotaController {
                 .findBySchoolMajorYear(schoolId, req.getMajorId(), year);
 
         if (existing.isPresent()) {
-            AdmissionQuota quota = existing.get();
-            quota.setTotalQuota(req.getTotalQuota());
-            quota.setMinScore(req.getMinScore());
-            quota.setMaxScore(req.getMaxScore());
-            quota.setDeadline(req.getDeadline());
-            quota.setStartTime(req.getStartTime());
-            quotaRepository.updateById(quota);
+            UUID quotaId = existing.get().getQuotaId();
+            LambdaUpdateWrapper<AdmissionQuota> wrapper = new LambdaUpdateWrapper<>();
+            wrapper.eq(AdmissionQuota::getQuotaId, quotaId)
+                    .set(AdmissionQuota::getTotalQuota, req.getTotalQuota())
+                    .set(AdmissionQuota::getMinScore, req.getMinScore())
+                    .set(AdmissionQuota::getMaxScore, req.getMaxScore())
+                    .set(AdmissionQuota::getDeadline, req.getDeadline())
+                    .set(AdmissionQuota::getStartTime, req.getStartTime());
+            quotaRepository.update(null, wrapper);
         } else {
             AdmissionQuota quota = new AdmissionQuota();
             quota.setSchoolId(schoolId);
@@ -128,15 +132,14 @@ public class QuotaController {
     @PutMapping("/{quotaId}")
     @RequireRole({"SCHOOL_ADMIN"})
     public Result<Void> update(@PathVariable UUID quotaId, @RequestBody @Valid QuotaUpdateRequest req) {
-        quotaRepository.findById(quotaId)
-                .ifPresent(quota -> {
-                    quota.setTotalQuota(req.getTotalQuota());
-                    quota.setMinScore(req.getMinScore());
-                    quota.setMaxScore(req.getMaxScore());
-                    quota.setDeadline(req.getDeadline());
-                    quota.setStartTime(req.getStartTime());
-                    quotaRepository.updateById(quota);
-                });
+        LambdaUpdateWrapper<AdmissionQuota> wrapper = new LambdaUpdateWrapper<>();
+        wrapper.eq(AdmissionQuota::getQuotaId, quotaId)
+                .set(AdmissionQuota::getTotalQuota, req.getTotalQuota())
+                .set(AdmissionQuota::getMinScore, req.getMinScore())
+                .set(AdmissionQuota::getMaxScore, req.getMaxScore())
+                .set(AdmissionQuota::getStartTime, req.getStartTime())
+                .set(AdmissionQuota::getDeadline, req.getDeadline());
+        quotaRepository.update(null, wrapper);
         return Result.ok();
     }
 
