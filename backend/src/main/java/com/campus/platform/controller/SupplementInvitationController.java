@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/v1/supplement/invitations")
+@RequestMapping("/api/v1/supplement/invitations")
 @RequiredArgsConstructor
 @Tag(name = "补录邀请管理")
 public class SupplementInvitationController {
