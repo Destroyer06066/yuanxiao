@@ -27,8 +27,8 @@
         <el-table-column prop="majorName" label="专业" min-width="160" />
         <el-table-column prop="year" label="年份" width="100" />
         <el-table-column prop="totalQuota" label="总名额" width="100" />
-        <el-table-column prop="enrolledCount" label="已录取" width="100" />
-        <el-table-column prop="reservedCount" label="已预占" width="100" />
+        <el-table-column prop="enrolledCount" label="已录取（已确认）" width="120" />
+        <el-table-column prop="reservedCount" label="已录取（未确认）" width="120" />
         <el-table-column label="剩余" width="100">
           <template #default="{ row }">
             <span :class="remainingClass(row)">{{ remaining(row) }}</span>
@@ -152,7 +152,7 @@
           show-icon
           style="margin-top: 4px"
         >
-          当前已录取 <strong>{{ editingRow.enrolledCount }}</strong> 人，已预占 <strong>{{ editingRow.reservedCount }}</strong> 人，
+          当前已录取（已确认）<strong>{{ editingRow.enrolledCount }}</strong> 人，已录取（未确认）<strong>{{ editingRow.reservedCount }}</strong> 人，
           剩余可用名额 <strong>{{ (editingRow.totalQuota || 0) - (editingRow.enrolledCount || 0) - (editingRow.reservedCount || 0) }}</strong> 个。
           新总名额不得少于 <strong>{{ (editingRow.enrolledCount || 0) + (editingRow.reservedCount || 0) }}</strong>。
         </el-alert>
