@@ -42,6 +42,9 @@ public class AdmissionQuota extends BaseEntity {
     @TableField("max_score")
     private Integer maxScore;
 
+    @TableField("start_time")
+    private Instant startTime;
+
     @TableField("deadline")
     private Instant deadline;
 
