@@ -120,12 +120,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getCheckinList, receiveMaterial, doCheckin, type CheckinRecord } from '@/api/checkin'
 import { usePermission } from '@/composables/usePermission'
+import { useYearStore } from '@/stores/year'
 
 const { can } = usePermission()
+const yearStore = useYearStore()
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -235,6 +237,11 @@ async function confirmCheckin() {
 }
 
 onMounted(fetchCheckins)
+
+// 年度变化时重新加载数据
+watch(() => yearStore.selectedYear, () => {
+  fetchCheckins()
+})
 </script>
 
 <style scoped>

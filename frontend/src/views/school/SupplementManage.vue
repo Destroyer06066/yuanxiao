@@ -432,17 +432,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Plus, Clock, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
+import { useYearStore } from '@/stores/year'
 import axios from '@/api/axios'
 import dayjs from 'dayjs'
 import { getGlobalConfigs } from '@/api/paramConfig'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const yearStore = useYearStore()
 
 // ========== 公共部分 ==========
 const isMode2 = ref(false)
@@ -836,6 +838,14 @@ onMounted(async () => {
   fetchRounds()
   if (isMode2.value) {
     fetchMajors()
+    fetchInvitations()
+  }
+})
+
+// 年度变化时重新加载数据
+watch(() => yearStore.selectedYear, () => {
+  fetchRounds()
+  if (isMode2.value) {
     fetchInvitations()
   }
 })

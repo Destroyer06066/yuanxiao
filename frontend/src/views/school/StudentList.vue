@@ -288,11 +288,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
+import { useYearStore } from '@/stores/year'
 import axios from '@/api/axios'
 import { queryStudents, getStudentStatusCounts, type StudentQuery, type Student, directAdmission, conditionalAdmission, batchReject, batchAdmit } from '@/api/student'
 import { getSchools } from '@/api/school'
@@ -300,6 +301,7 @@ import { getSupplementRounds, type SupplementRound } from '@/api/supplement'
 
 const route = useRoute()
 const authStore = useAuthStore()
+const yearStore = useYearStore()
 const loading = ref(false)
 const tableData = ref<Student[]>([])
 const total = ref(0)
@@ -670,7 +672,25 @@ onMounted(() => {
   }
   loadRounds()
   loadSchools()
+  // 初始化年度时间范围（如果未设置）
+  if (!dateRange.value || dateRange.value.length === 0) {
+    dateRange.value = [`${yearStore.selectedYear}-01-01`, `${yearStore.selectedYear}-12-31`]
+  }
   search()
+})
+
+// 年度变化时自动更新筛选时间范围
+watch(() => yearStore.selectedYear, (newYear) => {
+  // 只有在用户没有手动设置时间范围时才自动更新
+  // 判断依据：当前时间范围是否是"自动生成"的（通过比对是否是年度首尾）
+  const currentYear = new Date().getFullYear()
+  const isDefaultRange = dateRange.value?.length === 2 &&
+    dateRange.value[0] === `${currentYear}-01-01` &&
+    dateRange.value[1] === `${currentYear}-12-31`
+  if (isDefaultRange || !dateRange.value || dateRange.value.length === 0) {
+    dateRange.value = [`${newYear}-01-01`, `${newYear}-12-31`]
+    search()
+  }
 })
 </script>
 
