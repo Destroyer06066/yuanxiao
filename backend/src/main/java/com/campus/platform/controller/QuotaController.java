@@ -73,6 +73,7 @@ public class QuotaController {
                         m.put("reservedCount", q.getReservedCount() != null ? q.getReservedCount() : 0);
                         m.put("minScore", q.getMinScore());
                         m.put("maxScore", q.getMaxScore());
+                        m.put("deadline", q.getDeadline());
                         return m;
                     })
                     .collect(Collectors.toList())
