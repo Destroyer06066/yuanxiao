@@ -36,6 +36,12 @@ public class AdmissionQuota extends BaseEntity {
     @TableField("reserved_count")
     private Integer reservedCount;
 
+    @TableField("min_score")
+    private Integer minScore;
+
+    @TableField("max_score")
+    private Integer maxScore;
+
     @Version
     private Integer version;
 }

@@ -44,6 +44,13 @@
             />
           </template>
         </el-table-column>
+        <el-table-column label="录取分数区间" width="130">
+          <template #default="{ row }">
+            {{ row.minScore != null || row.maxScore != null
+              ? (row.minScore ?? '-') + ' ~ ' + (row.maxScore ?? '-')
+              : '-' }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
             <el-button v-if="can('quota:edit')" type="primary" link @click="openEdit(row)">编辑</el-button>
@@ -86,6 +93,13 @@
         </el-form-item>
         <el-form-item label="总名额" prop="totalQuota">
           <el-input-number v-model="form.totalQuota" :min="0" :max="99999" placeholder="请输入总名额数" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="录取分数区间">
+          <div style="display: flex; gap: 8px; align-items: center; width: 100%">
+            <el-input-number v-model="form.minScore" :min="0" :max="750" placeholder="最低分" style="width: 50%" />
+            <span style="color: #909399">~</span>
+            <el-input-number v-model="form.maxScore" :min="0" :max="750" placeholder="最高分" style="width: 50%" />
+          </div>
         </el-form-item>
         <!-- 编辑时显示已占用信息 -->
         <el-alert
@@ -145,6 +159,8 @@ const form = reactive({
   majorId: '',
   year: currentYear,
   totalQuota: 0,
+  minScore: null as number | null,
+  maxScore: null as number | null,
 })
 
 const rules: FormRules = {
@@ -240,6 +256,8 @@ async function openEdit(row: any) {
     majorId: row.majorId,
     year: row.year,
     totalQuota: row.totalQuota,
+    minScore: row.minScore ?? null,
+    maxScore: row.maxScore ?? null,
   })
   dialogVisible.value = true
 }
@@ -249,6 +267,8 @@ function resetForm() {
   form.majorId = ''
   form.year = currentYear
   form.totalQuota = 0
+  form.minScore = null
+  form.maxScore = null
   editingRow.value = null
 }
 
@@ -268,7 +288,11 @@ async function submitForm() {
   submitting.value = true
   try {
     if (isEdit.value) {
-      await axios.put(`/v1/quotas/${editingId.value}`, { totalQuota: form.totalQuota })
+      await axios.put(`/v1/quotas/${editingId.value}`, {
+        totalQuota: form.totalQuota,
+        minScore: form.minScore,
+        maxScore: form.maxScore,
+      })
     } else {
       await axios.post('/v1/quotas', { ...form })
     }

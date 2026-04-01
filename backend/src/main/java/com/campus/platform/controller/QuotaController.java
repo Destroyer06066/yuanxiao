@@ -62,15 +62,19 @@ public class QuotaController {
         int toIndex = Math.min(fromIndex + pageSize, total);
         List<Map<String, Object>> pageRecords = (fromIndex < total)
                 ? quotas.subList(fromIndex, toIndex).stream()
-                    .map(q -> Map.<String, Object>of(
-                            "quotaId", q.getQuotaId().toString(),
-                            "majorId", q.getMajorId().toString(),
-                            "majorName", majorNameMap.getOrDefault(q.getMajorId(), ""),
-                            "year", q.getYear(),
-                            "totalQuota", q.getTotalQuota(),
-                            "enrolledCount", q.getAdmittedCount() != null ? q.getAdmittedCount() : 0,
-                            "reservedCount", q.getReservedCount() != null ? q.getReservedCount() : 0
-                    ))
+                    .map(q -> {
+                        Map<String, Object> m = new java.util.HashMap<>();
+                        m.put("quotaId", q.getQuotaId().toString());
+                        m.put("majorId", q.getMajorId().toString());
+                        m.put("majorName", majorNameMap.getOrDefault(q.getMajorId(), ""));
+                        m.put("year", q.getYear());
+                        m.put("totalQuota", q.getTotalQuota());
+                        m.put("enrolledCount", q.getAdmittedCount() != null ? q.getAdmittedCount() : 0);
+                        m.put("reservedCount", q.getReservedCount() != null ? q.getReservedCount() : 0);
+                        m.put("minScore", q.getMinScore());
+                        m.put("maxScore", q.getMaxScore());
+                        return m;
+                    })
                     .collect(Collectors.toList())
                 : List.of();
 
@@ -94,6 +98,8 @@ public class QuotaController {
         if (existing.isPresent()) {
             AdmissionQuota quota = existing.get();
             quota.setTotalQuota(req.getTotalQuota());
+            quota.setMinScore(req.getMinScore());
+            quota.setMaxScore(req.getMaxScore());
             quotaRepository.updateById(quota);
         } else {
             AdmissionQuota quota = new AdmissionQuota();
@@ -101,6 +107,8 @@ public class QuotaController {
             quota.setMajorId(req.getMajorId());
             quota.setYear(year);
             quota.setTotalQuota(req.getTotalQuota());
+            quota.setMinScore(req.getMinScore());
+            quota.setMaxScore(req.getMaxScore());
             quota.setAdmittedCount(0);
             quota.setReservedCount(0);
             quota.setVersion(0);
@@ -116,6 +124,8 @@ public class QuotaController {
         quotaRepository.findById(quotaId)
                 .ifPresent(quota -> {
                     quota.setTotalQuota(req.getTotalQuota());
+                    quota.setMinScore(req.getMinScore());
+                    quota.setMaxScore(req.getMaxScore());
                     quotaRepository.updateById(quota);
                 });
         return Result.ok();
@@ -126,10 +136,14 @@ public class QuotaController {
         @NotNull private UUID majorId;
         @Min(0) private Integer totalQuota;
         private Integer year;
+        private Integer minScore;
+        private Integer maxScore;
     }
 
     @Data
     public static class QuotaUpdateRequest {
         @Min(0) @NotNull private Integer totalQuota;
+        private Integer minScore;
+        private Integer maxScore;
     }
 }
