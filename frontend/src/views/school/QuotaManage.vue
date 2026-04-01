@@ -75,18 +75,18 @@
     <el-dialog
       v-model="dialogVisible"
       :title="isEdit ? '编辑名额' : '新增名额'"
-      width="520px"
+      width="680px"
       :close-on-click-modal="false"
       @closed="resetForm"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="专业" prop="majorId">
-          <el-select v-model="form.majorId" placeholder="请选择专业" style="width: 100%" filterable>
+          <el-select v-model="form.majorId" placeholder="请选择专业" style="width: 100%" filterable :disabled="isEdit">
             <el-option v-for="m in majorList" :key="m.majorId" :label="m.majorName" :value="m.majorId" />
           </el-select>
         </el-form-item>
         <el-form-item label="年份" prop="year">
-          <el-select v-model="form.year" placeholder="请选择年份" style="width: 100%">
+          <el-select v-model="form.year" placeholder="请选择年份" style="width: 100%" :disabled="isEdit">
             <el-option :label="currentYear" :value="currentYear" />
             <el-option :label="nextYear" :value="nextYear" />
           </el-select>
@@ -101,6 +101,49 @@
             <el-input-number v-model="form.maxScore" :min="0" :max="750" placeholder="最高分" style="width: 50%" />
           </div>
         </el-form-item>
+        <el-form-item label="录取时间段">
+          <div style="display: flex; gap: 8px; align-items: center; width: 100%">
+            <el-date-picker
+              v-model="form.startTime"
+              type="datetime"
+              placeholder="开始时间（可空）"
+              format="YYYY-MM-DD HH:mm"
+              style="width: 50%"
+            />
+            <span style="color: #909399">~</span>
+            <el-date-picker
+              v-model="form.deadline"
+              type="datetime"
+              placeholder="截止时间"
+              format="YYYY-MM-DD HH:mm"
+              style="width: 50%"
+            />
+          </div>
+        </el-form-item>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 16px 0" />
+        <div style="font-weight: 600; margin-bottom: 12px">分数线配置</div>
+        <el-form-item label="总分最低分">
+          <el-input-number v-model="scoreLineForm.totalScore" :min="0" :max="750" style="width: 100%" />
+        </el-form-item>
+        <div style="margin-bottom: 8px; color: #606266">单科线</div>
+        <el-table :data="scoreLineForm.subjects" stripe size="small" style="margin-bottom: 8px">
+          <el-table-column prop="subject" label="科目" width="200">
+            <template #default="{ row }">
+              <el-input v-model="row.subject" placeholder="如：语文" />
+            </template>
+          </el-table-column>
+          <el-table-column prop="minScore" label="最低分" min-width="150">
+            <template #default="{ row }">
+              <el-input-number v-model="row.minScore" :min="0" :max="200" style="width: 100%" />
+            </template>
+          </el-table-column>
+          <el-table-column width="80">
+            <template #default="{ $index }">
+              <el-button type="danger" link @click="scoreLineForm.subjects.splice($index, 1)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-button size="small" @click="scoreLineForm.subjects.push({ subject: '', minScore: 0 })">+ 添加单科</el-button>
         <!-- 编辑时显示已占用信息 -->
         <el-alert
           v-if="isEdit && editingRow"
@@ -119,52 +162,11 @@
         <el-button type="primary" :loading="submitting" @click="submitForm">确定</el-button>
       </template>
     </el-dialog>
-
-    <!-- 分数线配置弹窗 -->
-    <el-dialog
-      v-model="scoreLineDialogVisible"
-      :title="`配置分数线 - ${scoreLineMajorName} ${scoreLineYear}年`"
-      width="600px"
-      :close-on-click-modal="false"
-    >
-      <!-- 总分线 -->
-      <el-form-item label="总分最低分">
-        <el-input-number v-model="scoreLineForm.totalScore" :min="0" :max="750" style="width: 100%" />
-      </el-form-item>
-
-      <!-- 单科线 -->
-      <div style="margin: 16px 0; font-weight: 600">单科线</div>
-      <el-table :data="scoreLineForm.subjects" stripe size="small">
-        <el-table-column prop="subject" label="科目" width="200">
-          <template #default="{ row }">
-            <el-input v-model="row.subject" placeholder="如：语文" />
-          </template>
-        </el-table-column>
-        <el-table-column prop="minScore" label="最低分" min-width="150">
-          <template #default="{ row }">
-            <el-input-number v-model="row.minScore" :min="0" :max="200" style="width: 100%" />
-          </template>
-        </el-table-column>
-        <el-table-column width="80">
-          <template #default="{ $index }">
-            <el-button type="danger" link @click="scoreLineForm.subjects.splice($index, 1)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-      <el-button size="small" style="margin-top: 8px" @click="scoreLineForm.subjects.push({ subject: '', minScore: 0 })">
-        + 添加单科
-      </el-button>
-
-      <template #footer>
-        <el-button @click="scoreLineDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="savingScoreLine" @click="saveScoreLines">确定</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import axios from '@/api/axios'
@@ -202,6 +204,8 @@ const form = reactive({
   totalQuota: 0,
   minScore: null as number | null,
   maxScore: null as number | null,
+  startTime: null as Date | null,
+  deadline: null as Date | null,
 })
 
 const rules: FormRules = {
@@ -299,7 +303,21 @@ async function openEdit(row: any) {
     totalQuota: row.totalQuota,
     minScore: row.minScore ?? null,
     maxScore: row.maxScore ?? null,
+    startTime: row.startTime ? new Date(row.startTime) : null,
+    deadline: row.deadline ? new Date(row.deadline) : null,
   })
+  // 加载分数线
+  const res = await axios.get('/v1/score-lines')
+  const lines = (res.data.data || []).filter((l: any) => l.majorId === row.majorId && l.year === row.year)
+  scoreLineForm.totalScore = null
+  scoreLineForm.subjects = []
+  for (const line of lines) {
+    if (line.subject === 'TOTAL') {
+      scoreLineForm.totalScore = line.minScore
+    } else {
+      scoreLineForm.subjects.push({ subject: line.subject, minScore: line.minScore })
+    }
+  }
   dialogVisible.value = true
 }
 
@@ -310,6 +328,10 @@ function resetForm() {
   form.totalQuota = 0
   form.minScore = null
   form.maxScore = null
+  form.startTime = null
+  form.deadline = null
+  scoreLineForm.totalScore = null
+  scoreLineForm.subjects = []
   editingRow.value = null
 }
 
@@ -317,7 +339,6 @@ async function submitForm() {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
 
-  // 编辑时校验：总名额不得少于已录取+已预占
   if (isEdit.value && editingRow.value) {
     const minRequired = (editingRow.value.enrolledCount || 0) + (editingRow.value.reservedCount || 0)
     if (form.totalQuota < minRequired) {
@@ -333,9 +354,21 @@ async function submitForm() {
         totalQuota: form.totalQuota,
         minScore: form.minScore,
         maxScore: form.maxScore,
+        startTime: form.startTime ? new Date(form.startTime).toISOString() : null,
+        deadline: form.deadline ? new Date(form.deadline).toISOString() : null,
       })
+      await saveScoreLines()
     } else {
-      await axios.post('/v1/quotas', { ...form })
+      await axios.post('/v1/quotas', {
+        majorId: form.majorId,
+        year: form.year,
+        totalQuota: form.totalQuota,
+        minScore: form.minScore,
+        maxScore: form.maxScore,
+        startTime: form.startTime ? new Date(form.startTime).toISOString() : null,
+        deadline: form.deadline ? new Date(form.deadline).toISOString() : null,
+      })
+      await saveScoreLines()
     }
     dialogVisible.value = false
     fetchQuotas()
@@ -347,83 +380,44 @@ async function submitForm() {
 }
 
 // ========== 分数线 ==========
-const scoreLineDialogVisible = ref(false)
-const savingScoreLine = ref(false)
-const scoreLineMajorName = ref('')
-const scoreLineYear = ref<number>()
-const scoreLineMajorId = ref('')
-const scoreLineQuotaId = ref('')
 const scoreLineForm = reactive({
   totalScore: null as number | null,
   subjects: [] as { subject: string; minScore: number }[]
 })
 
-async function openScoreLineDialog(row: any) {
-  scoreLineQuotaId.value = row.quotaId
-  scoreLineMajorId.value = row.majorId
-  scoreLineMajorName.value = row.majorName
-  scoreLineYear.value = row.year
-
-  // 获取现有分数线
-  const res = await axios.get('/v1/score-lines')
-  const lines = (res.data.data || []).filter((l: any) => l.majorId === row.majorId && l.year === row.year)
-  scoreLineForm.totalScore = null
-  scoreLineForm.subjects = []
-
-  for (const line of lines) {
-    if (line.subject === 'TOTAL') {
-      scoreLineForm.totalScore = line.minScore
-    } else {
-      scoreLineForm.subjects.push({ subject: line.subject, minScore: line.minScore })
-    }
-  }
-
-  scoreLineDialogVisible.value = true
-}
-
 async function saveScoreLines() {
-  savingScoreLine.value = true
-  try {
-    // 获取当前专业的所有现有记录
-    const res = await axios.get('/v1/score-lines')
-    const existing = (res.data.data || []).filter((l: any) =>
-      l.majorId === scoreLineMajorId.value && l.year === scoreLineYear.value
-    )
+  const majorId = form.majorId
+  const year = form.year
+  const res = await axios.get('/v1/score-lines')
+  const existing = (res.data.data || []).filter((l: any) => l.majorId === majorId && l.year === year)
 
-    // 保存总分线
-    const totalLine = existing.find((l: any) => l.subject === 'TOTAL')
-    if (scoreLineForm.totalScore != null) {
-      if (totalLine) {
-        await axios.put(`/v1/score-lines/${totalLine.lineId}`, {
-          majorId: scoreLineMajorId.value, year: scoreLineYear.value, subject: 'TOTAL', minScore: scoreLineForm.totalScore
-        })
-      } else {
-        await axios.post('/v1/score-lines', {
-          majorId: scoreLineMajorId.value, year: scoreLineYear.value, subject: 'TOTAL', minScore: scoreLineForm.totalScore
-        })
-      }
-    } else if (totalLine) {
-      await axios.delete(`/v1/score-lines/${totalLine.lineId}`)
+  const totalLine = existing.find((l: any) => l.subject === 'TOTAL')
+  if (scoreLineForm.totalScore != null) {
+    if (totalLine) {
+      await axios.put(`/v1/score-lines/${totalLine.lineId}`, {
+        majorId, year, subject: 'TOTAL', minScore: scoreLineForm.totalScore
+      })
+    } else {
+      await axios.post('/v1/score-lines', {
+        majorId, year, subject: 'TOTAL', minScore: scoreLineForm.totalScore
+      })
     }
-
-    // 保存单科线（先删后增）
-    const subjectLines = existing.filter((l: any) => l.subject !== 'TOTAL')
-    for (const sl of subjectLines) {
-      await axios.delete(`/v1/score-lines/${sl.lineId}`)
-    }
-    for (const s of scoreLineForm.subjects) {
-      if (s.subject && s.minScore != null) {
-        await axios.post('/v1/score-lines', {
-          majorId: scoreLineMajorId.value, year: scoreLineYear.value, subject: s.subject, minScore: s.minScore
-        })
-      }
-    }
-
-    scoreLineDialogVisible.value = false
-    ElMessage.success('保存成功')
-  } finally {
-    savingScoreLine.value = false
+  } else if (totalLine) {
+    await axios.delete(`/v1/score-lines/${totalLine.lineId}`)
   }
+
+  const subjectLines = existing.filter((l: any) => l.subject !== 'TOTAL')
+  for (const sl of subjectLines) {
+    await axios.delete(`/v1/score-lines/${sl.lineId}`)
+  }
+  for (const s of scoreLineForm.subjects) {
+    if (s.subject && s.minScore != null) {
+      await axios.post('/v1/score-lines', {
+        majorId, year, subject: s.subject, minScore: s.minScore
+      })
+    }
+  }
+  ElMessage.success('保存成功')
 }
 
 // ========== 初始化 ==========
