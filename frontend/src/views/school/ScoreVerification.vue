@@ -2,458 +2,382 @@
   <div class="page-container">
     <div class="page-header">
       <h2 class="page-title">成绩核验</h2>
-      <div class="header-actions">
-        <el-button v-if="can('verification:create')" type="success" @click="openBatchDialog">
-          <el-icon><FolderOpened /></el-icon> 批量核验
-        </el-button>
-      </div>
     </div>
 
-    <!-- 左右分栏布局 -->
-    <div class="split-layout">
-      <!-- 左侧：考生列表 -->
-      <div class="split-left">
-        <el-card shadow="never" class="left-card">
-          <template #header>
-            <div class="left-header">
-              <span>待核验考生</span>
-              <span class="badge">{{ filteredCandidates.length }}</span>
-            </div>
-          </template>
-          <!-- 筛选 -->
-          <div class="filter-row">
-            <el-input
-              v-model="candidateQuery.keyword"
-              placeholder="姓名/身份证"
-              style="width: 100%"
-              clearable
-              @clear="loadCandidates"
-              @keyup.enter="loadCandidates"
-            >
-              <template #prefix><el-icon><Search /></el-icon></template>
-            </el-input>
-            <el-select v-model="candidateQuery.status" placeholder="状态" style="width: 100%; margin-top: 8px" clearable @change="loadCandidates">
-              <el-option label="待核验" value="PENDING" />
-              <el-option label="已通过" value="VERIFIED" />
-              <el-option label="未通过" value="FAILED" />
-            </el-select>
-          </div>
-
-          <!-- 考生列表 -->
-          <el-table
-            :data="filteredCandidates"
-            v-loading="candidateLoading"
-            size="small"
-            style="margin-top: 8px"
-            max-height="400"
-            @row-click="selectCandidate"
-            :row-class-name="selectedRowClass"
-          >
-            <el-table-column prop="candidateName" label="姓名" width="80" />
-            <el-table-column prop="idCard" label="身份证" min-width="150" />
-            <el-table-column prop="status" label="状态" width="80">
-              <template #default="{ row }">
-                <el-tag :type="candidateStatusTagType(row.status)" size="small">
-                  {{ candidateStatusLabel(row.status) }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="80" fixed="right">
-              <template #default="{ row }">
-                <el-button
-                  v-if="can('verification:create') && row.status === 'PENDING'"
-                  type="primary" link
-                  size="small"
-                  @click.stop="openVerifyDialog(row)"
-                >
-                  提交核验
-                </el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-card>
-      </div>
-
-      <!-- 右侧：核验记录 -->
-      <div class="split-right">
-        <el-card shadow="never">
-          <template #header>
-            <div class="right-header">
-              <span>核验记录</span>
-              <el-select v-model="logQuery.result" placeholder="核验结果" style="width: 140px" clearable @change="fetchLogs">
-                <el-option label="全部" value="" />
-                <el-option label="通过" value="PASSED" />
-                <el-option label="未通过" value="FAILED" />
-              </el-select>
-            </div>
-          </template>
-
-          <el-table :data="logs" v-loading="logLoading" size="small" max-height="500">
-            <el-table-column prop="candidateName" label="考生姓名" width="100" />
-            <el-table-column prop="majorName" label="专业" min-width="120" />
-            <el-table-column prop="certificateNo" label="证书号" min-width="140" />
-            <el-table-column prop="result" label="核验结果" width="90">
-              <template #default="{ row }">
-                <el-tag :type="row.result === 'PASSED' ? 'success' : 'danger'" size="small">
-                  {{ row.result === 'PASSED' ? '通过' : '未通过' }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="operatorName" label="操作人" width="100" />
-            <el-table-column prop="createdAt" label="核验时间" width="170" />
-          </el-table>
-
-          <!-- 分页 -->
-          <el-pagination
-            v-model:current-page="logQuery.page"
-            v-model:page-size="logQuery.pageSize"
-            :total="logTotal"
-            :page-sizes="[10, 20, 50]"
-            layout="total, sizes, prev, pager, next"
-            style="margin-top: 12px; justify-content: flex-end"
-            @size-change="fetchLogs"
-            @current-change="fetchLogs"
+    <!-- 核验表单 -->
+    <el-card class="verify-form-card">
+      <el-form :model="verifyForm" inline @submit.prevent="submitVerify">
+        <el-form-item label="证书编号">
+          <el-input
+            v-model="verifyForm.certificateNo"
+            placeholder="请输入证书编号"
+            style="width: 200px"
+            clearable
           />
-        </el-card>
-      </div>
-    </div>
-
-    <!-- 核验提交弹窗 -->
-    <el-dialog
-      v-model="verifyDialogVisible"
-      title="提交核验"
-      width="500px"
-      :close-on-click-modal="false"
-      @closed="resetVerifyForm"
-    >
-      <el-form ref="verifyFormRef" :model="verifyForm" :rules="verifyRules" label-width="100px">
-        <el-form-item label="考生">
-          <span>{{ verifyForm.candidateName }}</span>
         </el-form-item>
-        <el-form-item label="证书号" prop="certificateNo">
-          <el-input v-model="verifyForm.certificateNo" placeholder="请输入证书编号" maxlength="50" />
+        <el-form-item label="防伪验证码">
+          <el-input
+            v-model="verifyForm.verifyCode"
+            placeholder="请输入防伪验证码"
+            style="width: 180px"
+            clearable
+          />
         </el-form-item>
-        <el-form-item label="核验结果" prop="result">
-          <el-radio-group v-model="verifyForm.result">
-            <el-radio value="PASSED">通过</el-radio>
-            <el-radio value="FAILED">未通过</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="备注" prop="note">
-          <el-input v-model="verifyForm.note" type="textarea" :rows="2" placeholder="选填" maxlength="500" />
+        <el-form-item>
+          <el-button type="primary" :loading="submitting" @click="submitVerify">
+            开始核验
+          </el-button>
         </el-form-item>
       </el-form>
-      <template #footer>
-        <el-button @click="verifyDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="submitVerify">确定</el-button>
+    </el-card>
+
+    <!-- 核验结果 -->
+    <el-card v-if="result" :class="['result-card', result.valid ? 'success' : 'failure']">
+      <template #header>
+        <span class="result-title">
+          <el-icon v-if="result.valid" color="#67c23a" :size="20"><CircleCheck /></el-icon>
+          <el-icon v-else color="#f56c6c" :size="20"><CircleClose /></el-icon>
+          {{ result.valid ? '证书核验通过' : '证书核验失败' }}
+        </span>
       </template>
-    </el-dialog>
 
-    <!-- 批量核验弹窗 -->
-    <el-dialog
-      v-model="batchDialogVisible"
-      title="批量核验"
-      width="640px"
-      :close-on-click-modal="false"
-      @closed="resetBatchForm"
-    >
-      <el-alert
-        type="info"
-        :closable="false"
-        show-icon
-        style="margin-bottom: 16px"
-      >
-        选择需要核验的考生，批量提交核验结果。
-      </el-alert>
-      <el-form ref="batchFormRef" :model="batchForm" label-width="80px">
-        <el-form-item label="核验结果" prop="result">
-          <el-radio-group v-model="batchForm.result">
-            <el-radio value="PASSED">全部通过</el-radio>
-            <el-radio value="FAILED">全部未通过</el-radio>
-          </el-radio-group>
-        </el-form-item>
-      </el-form>
-      <el-table :data="pendingCandidates" v-loading="candidateLoading" size="small" max-height="300">
-        <el-table-column type="selection" width="55" />
-        <el-table-column prop="candidateName" label="考生姓名" width="120" />
-        <el-table-column prop="idCard" label="身份证" min-width="150" />
-        <el-table-column label="证书号" width="160">
+      <!-- 有效证书详情 - PDF显示 -->
+      <div v-if="result.valid" class="certificate-pdf-container">
+        <embed
+          :src="'/certificate-template.pdf#toolbar=0&navpanes=0&scrollbar=0'"
+          type="application/pdf"
+          class="certificate-embed"
+        />
+        <div class="result-message success">
+          <el-icon color="#67c23a"><SuccessFilled /></el-icon>
+          {{ result.message }}
+        </div>
+      </div>
+
+      <!-- 失败信息 -->
+      <div v-else>
+        <el-result icon="error" :title="result.message || '该证书不存在或已失效'" />
+      </div>
+    </el-card>
+
+    <!-- 空状态提示 -->
+    <el-card v-else class="empty-card">
+      <el-empty description="请输入证书编号和防伪验证码进行核验" :image-size="80" />
+    </el-card>
+
+    <!-- 成绩说明 -->
+    <el-card class="info-card">
+      <el-collapse>
+        <el-collapse-item title="成绩说明" name="info">
+          <div class="info-section">
+            <div class="info-title">一、百分位排名 (Percentile Rank) 说明</div>
+            <div class="info-content">
+              CSCA成绩百分位排名用于比较该考生在本次考试同一科目中与全球其他考生的表现，反映其成绩在整体考生群体中的相对位置。具体而言，百分位排名的数值表示，该考生的成绩在本次考试同一科目中，超越了百分之多少的全球考生。例如，某考生的百分位排名为0m，即表示其成绩等于或高于约90%的全球考生，即处于全球考生中的前10%。
+            </div>
+          </div>
+          <div class="info-section">
+            <div class="info-title">二、成绩状态说明</div>
+            <div class="info-content">
+              根据本次考试结果，考生的成绩报告可能标注以下一种或多种成绩状态:
+            </div>
+            <div class="status-list">
+              <div class="status-item">
+                <el-tag type="info" size="small">缺席 / Absent</el-tag>
+                <span>考生未参加考试，或因设备、网络、系统等客观原因未能完成考试。</span>
+              </div>
+              <div class="status-item">
+                <el-tag type="danger" size="small">无效 / Invalid</el-tag>
+                <span>考生在本次考试中存在违规行为或其他可能破坏考试公平的行为，该科目成绩被判定为无效。</span>
+              </div>
+              <div class="status-item">
+                <el-tag type="warning" size="small">待发布 / Pending</el-tag>
+                <span>因存在需要进一步核实的情况，成绩暂缓发布。待相关情况核实完成后，将更新最终结果。</span>
+              </div>
+              <div class="status-item">
+                <el-tag type="info" size="small">取消 / Cancelled</el-tag>
+                <span>考生主动申请取消成绩。</span>
+              </div>
+            </div>
+          </div>
+        </el-collapse-item>
+      </el-collapse>
+    </el-card>
+
+    <!-- 核验历史记录 -->
+    <el-card class="history-card">
+      <template #header>
+        <div class="history-header">
+          <span>核验记录</span>
+          <el-select
+            v-model="logQuery.result"
+            placeholder="核验结果"
+            style="width: 120px"
+            clearable
+            @change="fetchLogs"
+          >
+            <el-option label="全部" value="" />
+            <el-option label="通过" value="PASSED" />
+            <el-option label="未通过" value="FAILED" />
+          </el-select>
+        </div>
+      </template>
+      <el-table :data="logs" v-loading="logLoading" size="small">
+        <el-table-column prop="certificateNo" label="证书号" width="150" />
+        <el-table-column prop="candidateName" label="考生姓名" width="100">
           <template #default="{ row }">
-            <el-input v-model="row.certificateNo" size="small" placeholder="证书号" />
+            {{ row.candidateName || '-' }}
           </template>
         </el-table-column>
+        <el-table-column prop="result" label="核验结果" width="90">
+          <template #default="{ row }">
+            <el-tag :type="row.result === 'PASSED' ? 'success' : 'danger'" size="small">
+              {{ row.result === 'PASSED' ? '通过' : '未通过' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="note" label="备注" min-width="200">
+          <template #default="{ row }">
+            {{ row.note || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="createdAt" label="核验时间" width="170" />
       </el-table>
-      <template #footer>
-        <el-button @click="batchDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="submitBatch">确定提交</el-button>
-      </template>
-    </el-dialog>
+      <el-pagination
+        v-model:current-page="logQuery.page"
+        v-model:page-size="logQuery.pageSize"
+        :total="logTotal"
+        :page-sizes="[10, 20, 50]"
+        layout="total, sizes, prev, pager, next"
+        style="margin-top: 12px; justify-content: flex-end"
+        @size-change="fetchLogs"
+        @current-change="fetchLogs"
+      />
+    </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
-import { Plus, Search, FolderOpened } from '@element-plus/icons-vue'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
-import axios from '@/api/axios'
-import { usePermission } from '@/composables/usePermission'
+import { ref, reactive, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import { CircleCheck, CircleClose, SuccessFilled } from '@element-plus/icons-vue'
+import {
+  verifyCertificate,
+  getVerificationLogs,
+  type CertificateVerificationResponse,
+  type VerificationLogRecord,
+} from '@/api/verification'
 
-const { can } = usePermission()
-
-// ========== 考生列表 ==========
-const candidateLoading = ref(false)
-const candidates = ref<any[]>([])
-const selectedPushId = ref('')
-
-const candidateQuery = reactive({
-  keyword: '',
-  status: '',
-})
-
-const filteredCandidates = computed(() => {
-  return candidates.value
-})
-
-async function loadCandidates() {
-  candidateLoading.value = true
-  try {
-    const params: any = { page: 1, pageSize: 200 }
-    if (candidateQuery.keyword) params.keyword = candidateQuery.keyword
-    if (candidateQuery.status) params.status = candidateQuery.status
-    const res = await axios.get('/v1/students', { params })
-    candidates.value = res.data.data.records || []
-  } catch {
-    // error handled by axios interceptor
-  } finally {
-    candidateLoading.value = false
-  }
-}
-
-function selectCandidate(row: any) {
-  selectedPushId.value = row.pushId
-}
-
-function selectedRowClass({ row }: any) {
-  return row.pushId === selectedPushId.value ? 'selected-row' : ''
-}
-
-function candidateStatusTagType(status: string): 'primary' | 'success' | 'warning' | 'info' | 'danger' {
-  const map: Record<string, 'primary' | 'success' | 'warning' | 'info' | 'danger'> = {
-    PENDING: 'info',
-    VERIFIED: 'success',
-    FAILED: 'danger',
-  }
-  return map[status] || 'info'
-}
-
-function candidateStatusLabel(status: string) {
-  const map: Record<string, string> = {
-    PENDING: '待核验',
-    VERIFIED: '已通过',
-    FAILED: '未通过',
-  }
-  return map[status] || status
-}
-
-// ========== 核验记录 ==========
-const logLoading = ref(false)
-const logs = ref<any[]>([])
-const logTotal = ref(0)
-
-const logQuery = reactive({
-  result: '',
-  page: 1,
-  pageSize: 20,
-})
-
-async function fetchLogs() {
-  logLoading.value = true
-  try {
-    const params: any = { page: logQuery.page, pageSize: logQuery.pageSize }
-    if (logQuery.result) params.result = logQuery.result
-    const res = await axios.get('/v1/verifications', { params })
-    logs.value = res.data.data.records || []
-    logTotal.value = res.data.data.total || 0
-  } catch {
-    // error handled by axios interceptor
-  } finally {
-    logLoading.value = false
-  }
-}
-
-// ========== 核验弹窗 ==========
-const verifyDialogVisible = ref(false)
-const submitting = ref(false)
-const verifyFormRef = ref<FormInstance>()
-
+// ========== 核验表单 ==========
 const verifyForm = reactive({
-  pushId: '',
-  candidateName: '',
   certificateNo: '',
-  result: 'PASSED',
-  note: '',
+  verifyCode: '',
 })
 
-const verifyRules: FormRules = {
-  certificateNo: [
-    { required: true, message: '请输入证书编号', trigger: 'blur' },
-    { max: 50, message: '证书编号最多50个字符', trigger: 'blur' },
-  ],
-  result: [
-    { required: true, message: '请选择核验结果', trigger: 'change' },
-  ],
-}
-
-function openVerifyDialog(row: any) {
-  verifyForm.pushId = row.pushId
-  verifyForm.candidateName = row.candidateName
-  verifyForm.certificateNo = ''
-  verifyForm.result = 'PASSED'
-  verifyForm.note = ''
-  verifyDialogVisible.value = true
-}
-
-function resetVerifyForm() {
-  verifyFormRef.value?.resetFields()
-}
+const result = ref<CertificateVerificationResponse | null>(null)
+const submitting = ref(false)
 
 async function submitVerify() {
-  const valid = await verifyFormRef.value?.validate().catch(() => false)
-  if (!valid) return
-
-  submitting.value = true
-  try {
-    await axios.post('/v1/verifications', {
-      pushId: verifyForm.pushId,
-      certificateNo: verifyForm.certificateNo,
-      result: verifyForm.result,
-      note: verifyForm.note || undefined,
-    })
-    ElMessage.success('核验提交成功')
-    verifyDialogVisible.value = false
-    loadCandidates()
-    fetchLogs()
-  } catch {
-    // error handled by axios interceptor
-  } finally {
-    submitting.value = false
+  if (!verifyForm.certificateNo.trim()) {
+    ElMessage.warning('请输入证书编号')
+    return
   }
-}
-
-// ========== 批量核验 ==========
-const batchDialogVisible = ref(false)
-const pendingCandidates = ref<any[]>([])
-
-const batchForm = reactive({
-  result: 'PASSED',
-})
-
-function openBatchDialog() {
-  pendingCandidates.value = candidates.value
-    .filter(c => c.status === 'PENDING')
-    .map(c => ({ ...c, certificateNo: '' }))
-  batchDialogVisible.value = true
-}
-
-function resetBatchForm() {
-  batchForm.result = 'PASSED'
-  pendingCandidates.value = []
-}
-
-async function submitBatch() {
-  const items = pendingCandidates.value
-    .filter(c => c.certificateNo?.trim())
-    .map(c => ({
-      pushId: c.pushId,
-      certificateNo: c.certificateNo.trim(),
-      result: batchForm.result,
-    }))
-
-  if (items.length === 0) {
-    ElMessage.warning('请至少填写一条核验记录')
+  if (!verifyForm.verifyCode.trim()) {
+    ElMessage.warning('请输入防伪验证码')
     return
   }
 
   submitting.value = true
   try {
-    await axios.post('/v1/verifications/batch', { items })
-    ElMessage.success(`批量核验成功，共提交 ${items.length} 条`)
-    batchDialogVisible.value = false
-    loadCandidates()
+    const res = await verifyCertificate({
+      certificateNo: verifyForm.certificateNo.trim(),
+      verifyCode: verifyForm.verifyCode.trim(),
+    })
+    result.value = res.data.data
+    ElMessage.success(result.value.valid ? '证书核验通过' : '证书核验失败')
+    // 刷新历史记录
     fetchLogs()
+    // 清空表单
+    verifyForm.certificateNo = ''
+    verifyForm.verifyCode = ''
   } catch {
-    // error handled by axios interceptor
+    // 错误由 axios 拦截器处理
   } finally {
     submitting.value = false
   }
 }
 
+// ========== 核验记录 ==========
+const logs = ref<VerificationLogRecord[]>([])
+const logTotal = ref(0)
+const logLoading = ref(false)
+
+const logQuery = reactive({
+  result: '',
+  page: 1,
+  pageSize: 10,
+})
+
+async function fetchLogs() {
+  logLoading.value = true
+  try {
+    const params: any = {
+      page: logQuery.page,
+      pageSize: logQuery.pageSize,
+    }
+    if (logQuery.result) {
+      params.result = logQuery.result
+    }
+    const res = await getVerificationLogs(params)
+    logs.value = res.data.data.records || []
+    logTotal.value = res.data.data.total || 0
+  } catch {
+    // 错误由 axios 拦截器处理
+  } finally {
+    logLoading.value = false
+  }
+}
+
 // ========== 初始化 ==========
 onMounted(() => {
-  loadCandidates()
   fetchLogs()
 })
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .page-container {
   padding: 20px;
 }
+
 .page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   margin-bottom: 16px;
 }
+
 .page-title {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
 }
-.header-actions {
-  display: flex;
-  gap: 8px;
-}
-.split-layout {
-  display: grid;
-  grid-template-columns: 40% 58%;
-  gap: 16px;
-  align-items: start;
-}
-.split-left,
-.split-right {
-  min-width: 0;
-}
-.left-card {
-  height: 100%;
-}
-.left-header,
-.right-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.badge {
-  background: #409eff;
-  color: #fff;
-  border-radius: 10px;
-  padding: 0 8px;
-  font-size: 12px;
-  line-height: 20px;
-}
-.filter-row {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.right-header {
-  font-weight: 600;
-}
-</style>
 
-<style>
-.selected-row {
-  background-color: #ecf5ff !important;
-  cursor: pointer;
+.verify-form-card {
+  margin-bottom: 16px;
+}
+
+.result-card {
+  margin-bottom: 16px;
+  border: 2px solid;
+
+  &.success {
+    border-color: #67c23a;
+  }
+
+  &.failure {
+    border-color: #f56c6c;
+  }
+
+  .result-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .subject-scores {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #eee;
+
+    .subject-label {
+      font-weight: 500;
+      color: #606266;
+    }
+  }
+
+  .certificate-pdf-container {
+    width: 100%;
+    background: #fff;
+
+    .certificate-embed {
+      width: 100%;
+      height: calc(100vh - 280px);
+      border: none;
+      display: block;
+      background: #fff;
+    }
+  }
+
+  .result-message {
+    margin-top: 16px;
+    padding: 12px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    &.success {
+      background: #f0f9eb;
+      color: #67c23a;
+    }
+  }
+}
+
+.empty-card {
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.history-card {
+  .history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 600;
+  }
+}
+
+.info-card {
+  margin-bottom: 16px;
+
+  .info-section {
+    margin-bottom: 16px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  .info-title {
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #303133;
+  }
+
+  .info-content {
+    line-height: 1.8;
+    color: #606266;
+    font-size: 14px;
+  }
+
+  .status-list {
+    margin-top: 12px;
+
+    .status-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 12px;
+      line-height: 1.6;
+
+      .el-tag {
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+
+      span {
+        color: #606266;
+        font-size: 14px;
+      }
+    }
+  }
 }
 </style>

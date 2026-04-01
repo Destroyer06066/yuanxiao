@@ -29,12 +29,15 @@ public class VerificationService {
     /**
      * 查询核验记录列表
      */
-    public IPage<Map<String, Object>> getLogs(UUID schoolId, UUID pushId, String result, int page, int pageSize) {
+    public IPage<Map<String, Object>> getLogs(UUID schoolId, String certificateNo, String result, int page, int pageSize) {
         Page<VerificationLog> p = new Page<>(page, pageSize);
         LambdaQueryWrapper<VerificationLog> q = new LambdaQueryWrapper<>();
-        q.eq(VerificationLog::getSchoolId, schoolId);
-        if (pushId != null) {
-            q.eq(VerificationLog::getPushId, pushId);
+        // OP_ADMIN (schoolId=null) 可查看所有记录，否则只查本校
+        if (schoolId != null) {
+            q.eq(VerificationLog::getSchoolId, schoolId);
+        }
+        if (StringUtils.hasText(certificateNo)) {
+            q.eq(VerificationLog::getCertificateNo, certificateNo);
         }
         if (StringUtils.hasText(result)) {
             q.eq(VerificationLog::getResult, result);
@@ -42,7 +45,7 @@ public class VerificationService {
         q.orderByDesc(VerificationLog::getCreatedAt);
         IPage<VerificationLog> pageResult = verificationLogRepository.selectPage(p, q);
 
-        // 附加考生姓名
+        // 转换为响应格式
         Page<Map<String, Object>> resultPage = new Page<>(pageResult.getCurrent(), pageResult.getSize(), pageResult.getTotal());
         resultPage.setRecords(pageResult.getRecords().stream().map(log -> {
             String candidateName = "";
@@ -54,7 +57,7 @@ public class VerificationService {
                     "verificationId", log.getVerificationId().toString(),
                     "pushId", log.getPushId() != null ? log.getPushId().toString() : "",
                     "candidateName", candidateName,
-                    "action", log.getAction(),
+                    "action", log.getAction() != null ? log.getAction() : "",
                     "certificateNo", log.getCertificateNo() != null ? log.getCertificateNo() : "",
                     "result", log.getResult() != null ? log.getResult() : "",
                     "note", log.getNote() != null ? log.getNote() : "",
@@ -63,48 +66,5 @@ public class VerificationService {
             );
         }).collect(java.util.stream.Collectors.toList()));
         return resultPage;
-    }
-
-    /**
-     * 提交核验
-     */
-    @Transactional
-    public void submit(UUID schoolId, String pushId, String operatorId, VerificationRequest req) {
-        UUID pushUuid = UUID.fromString(pushId);
-        CandidatePush push = candidatePushRepository.findById(pushUuid)
-                .orElseThrow(() -> new BusinessException(ErrorCode.CANDIDATE_NOT_FOUND, "考生记录不存在"));
-
-        VerificationLog logEntry = new VerificationLog();
-        logEntry.setVerificationId(UUID.randomUUID());
-        logEntry.setSchoolId(schoolId);
-        logEntry.setPushId(pushUuid);
-        logEntry.setOperatorId(operatorId != null ? UUID.fromString(operatorId) : null);
-        logEntry.setAction(req.getAction());
-        logEntry.setCertificateNo(req.getCertificateNo());
-        logEntry.setResult(req.getResult());
-        logEntry.setNote(req.getNote());
-        verificationLogRepository.insert(logEntry);
-        log.info("提交核验: verificationId={}, pushId={}, result={}", logEntry.getVerificationId(), pushId, req.getResult());
-    }
-
-    /**
-     * 批量核验
-     */
-    @Transactional
-    public void batchSubmit(UUID schoolId, String operatorId, java.util.List<VerificationRequest> items) {
-        for (VerificationRequest req : items) {
-            submit(schoolId, req.getPushId(), operatorId, req);
-        }
-    }
-
-    // ========== DTO ==========
-
-    @lombok.Data
-    public static class VerificationRequest {
-        private String pushId;
-        private String action;
-        private String certificateNo;
-        private String result;
-        private String note;
     }
 }

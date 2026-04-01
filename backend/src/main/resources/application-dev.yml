@@ -42,6 +42,10 @@ integration:
     connect-timeout: 5000
     read-timeout: 10000
     retry-max-attempts: 3
+  certificate-verification:
+    base-url: http://localhost:8081/certificate-api
+    connect-timeout: 5000
+    read-timeout: 10000
 
 jwt:
   private-key-path: classpath:keys/jwt-private.pem
