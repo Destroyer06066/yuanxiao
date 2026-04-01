@@ -197,6 +197,8 @@ const MENU_ITEMS: Array<{
   actions: string[]
 }> = [
   // ========== OP_ADMIN 菜单 ==========
+  // 首页（独立菜单项）
+  { group: '首页', item: '首页', module: 'dashboard', actions: ['read'] },
   // 招生管理
   { group: '招生管理', item: '考生列表', module: 'account', actions: ['read'] },
   { group: '招生管理', item: '录取轮次', module: 'supplement', actions: ['read'] },
@@ -233,6 +235,10 @@ type PermissionItem = {
 }
 
 const ITEM_PERMISSIONS: Record<string, PermissionItem[]> = {
+  // 首页
+  '首页': [
+    { action: 'read', label: '查看' },
+  ],
   // 招生管理
   '考生列表': [
     { action: 'read', label: '查看' },
