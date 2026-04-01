@@ -23,9 +23,11 @@ public class StatisticsController {
 
     @Operation(summary = "KPI 指标卡")
     @GetMapping("/statistics/kpis")
-    public Result<Map<String, Object>> getKpis() {
+    public Result<Map<String, Object>> getKpis(
+            @RequestParam(required = false, defaultValue = "0") int year) {
+        if (year == 0) year = java.time.LocalDate.now().getYear();
         UUID schoolId = SecurityContext.isOpAdmin() ? null : SecurityContext.getSchoolId();
-        return Result.ok(statisticsService.getKpis(schoolId));
+        return Result.ok(statisticsService.getKpis(schoolId, year));
     }
 
     @Operation(summary = "可用年份列表")

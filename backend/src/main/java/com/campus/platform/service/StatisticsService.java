@@ -45,20 +45,18 @@ public class StatisticsService {
     /**
      * 返回 KPI 指标卡数据
      */
-    public Map<String, Object> getKpis(UUID schoolId) {
-        LambdaQueryWrapper<CandidatePush> baseQ = buildSchoolFilter(schoolId);
-
-        long totalPushed = candidatePushRepository.selectCount(baseQ.clone());
-        long admitted = candidatePushRepository.selectCount(buildStatusFilter(schoolId, CandidateStatus.ADMITTED));
-        long confirmed = candidatePushRepository.selectCount(buildStatusFilter(schoolId, CandidateStatus.CONFIRMED));
-        long checkedIn = candidatePushRepository.selectCount(buildStatusFilter(schoolId, CandidateStatus.CHECKED_IN));
+    public Map<String, Object> getKpis(UUID schoolId, int year) {
+        // 按年份过滤的基数查询
+        long totalPushed = countByYear(schoolId, year);
+        long admitted = countByStatusYear(schoolId, CandidateStatus.ADMITTED, year);
+        long confirmed = countByStatusYear(schoolId, CandidateStatus.CONFIRMED, year);
+        long checkedIn = countByStatusYear(schoolId, CandidateStatus.CHECKED_IN, year);
 
         // 同比（与去年相比）
-        int thisYear = LocalDate.now().getYear();
-        long totalLastYear = countByYear(schoolId, thisYear - 1);
-        long admittedLastYear = countByStatusYear(schoolId, CandidateStatus.ADMITTED, thisYear - 1);
-        long confirmedLastYear = countByStatusYear(schoolId, CandidateStatus.CONFIRMED, thisYear - 1);
-        long checkedInLastYear = countByStatusYear(schoolId, CandidateStatus.CHECKED_IN, thisYear - 1);
+        long totalLastYear = countByYear(schoolId, year - 1);
+        long admittedLastYear = countByStatusYear(schoolId, CandidateStatus.ADMITTED, year - 1);
+        long confirmedLastYear = countByStatusYear(schoolId, CandidateStatus.CONFIRMED, year - 1);
+        long checkedInLastYear = countByStatusYear(schoolId, CandidateStatus.CHECKED_IN, year - 1);
 
         return Map.of(
                 "totalPushed", totalPushed,

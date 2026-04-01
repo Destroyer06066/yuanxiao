@@ -192,9 +192,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useYearStore } from '@/stores/year'
 import axios from '@/api/axios'
 import EmptyState from '@/components/EmptyState.vue'
 import {
@@ -203,6 +204,7 @@ import {
 
 const router = useRouter()
 const authStore = useAuthStore()
+const yearStore = useYearStore()
 
 // ========== 通用 KPI ==========
 const stats = ref([
@@ -239,7 +241,7 @@ async function refreshAll() {
 
 async function loadStats() {
   try {
-    const res = await axios.get('/v1/statistics/kpis')
+    const res = await axios.get('/v1/statistics/kpis', { params: { year: yearStore.selectedYear } })
     const d = res.data.data || {}
     stats.value[0].value = d.totalPushed ?? 0
     stats.value[1].value = d.admitted ?? 0
@@ -325,6 +327,11 @@ onMounted(async () => {
     loadQuotaUsage()
     loadRecentOps(10)
   }
+})
+
+// 年度变化时重新加载数据
+watch(() => yearStore.selectedYear, () => {
+  loadStats()
 })
 </script>
 

@@ -32,12 +32,8 @@
             </el-menu-item>
           </el-sub-menu>
 
-          <el-sub-menu index="message">
-            <template #title><el-icon><Message /></el-icon><span>消息</span></template>
-            <el-menu-item index="/notifications">
-              <el-icon><Bell /></el-icon>
-              <template #title>站内通知</template>
-            </el-menu-item>
+          <el-sub-menu index="data-stats">
+            <template #title><el-icon><DataAnalysis /></el-icon><span>数据统计</span></template>
             <el-menu-item index="/statistics">
               <el-icon><DataBoard /></el-icon>
               <template #title>数据统计</template>
@@ -55,6 +51,11 @@
               <template #title>院校列表</template>
             </el-menu-item>
           </el-sub-menu>
+
+          <el-menu-item index="/notifications">
+            <el-icon><Bell /></el-icon>
+            <template #title>站内通知</template>
+          </el-menu-item>
 
           <el-sub-menu index="system">
             <template #title><el-icon><Setting /></el-icon><span>系统</span></template>
@@ -107,17 +108,18 @@
             </el-menu-item>
           </el-sub-menu>
 
-          <el-sub-menu index="message">
-            <template #title><el-icon><Message /></el-icon><span>消息</span></template>
-            <el-menu-item index="/notifications">
-              <el-icon><Bell /></el-icon>
-              <template #title>站内通知</template>
-            </el-menu-item>
+          <el-sub-menu index="data-stats-school">
+            <template #title><el-icon><DataAnalysis /></el-icon><span>数据统计</span></template>
             <el-menu-item index="/statistics">
               <el-icon><DataBoard /></el-icon>
               <template #title>数据统计</template>
             </el-menu-item>
           </el-sub-menu>
+
+          <el-menu-item index="/notifications">
+            <el-icon><Bell /></el-icon>
+            <template #title>站内通知</template>
+          </el-menu-item>
 
           <!-- SCHOOL_ADMIN 系统菜单 -->
           <el-sub-menu v-if="authStore.role === 'SCHOOL_ADMIN'" index="school-system">
@@ -175,6 +177,20 @@
             </el-select>
           </div>
 
+          <!-- 全局年度选择器 -->
+          <el-select
+            v-model="yearStore.selectedYear"
+            style="width: 100px; margin-right: 8px"
+            size="small"
+          >
+            <el-option
+              v-for="y in yearStore.availableYears"
+              :key="y"
+              :label="y + '年'"
+              :value="y"
+            />
+          </el-select>
+
           <el-badge :value="unreadCount" :hidden="unreadCount === 0" class="notif-badge">
             <el-icon size="20" @click="router.push('/notifications')">
               <Bell />
@@ -211,6 +227,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notification'
+import { useYearStore } from '@/stores/year'
 import { searchStudents } from '@/api/student'
 import {
   HomeFilled, OfficeBuilding, User, Reading,
@@ -225,6 +242,7 @@ const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const notifStore = useNotificationStore()
+const yearStore = useYearStore()
 
 const isCollapse = ref(false)
 const unreadCount = computed(() => notifStore.unreadCount)
@@ -267,6 +285,7 @@ onMounted(async () => {
     await authStore.fetchUserInfo()
   }
   notifStore.startPolling()
+  yearStore.loadYears()
 })
 
 function handleCommand(cmd: string) {

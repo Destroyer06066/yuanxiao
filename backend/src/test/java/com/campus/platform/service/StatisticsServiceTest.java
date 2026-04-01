@@ -57,7 +57,7 @@ class StatisticsServiceTest {
             when(candidatePushRepository.selectCount(any(LambdaQueryWrapper.class)))
                     .thenReturn(100L, 30L, 20L, 10L, 90L, 25L, 15L, 8L);
 
-            Map<String, Object> result = statisticsService.getKpis(schoolId);
+            Map<String, Object> result = statisticsService.getKpis(schoolId, 2026);
 
             assertNotNull(result);
             assertEquals(100L, result.get("totalPushed"));
@@ -75,7 +75,7 @@ class StatisticsServiceTest {
         void getKpis_nullSchoolId_countsAll() {
             when(candidatePushRepository.selectCount(any(LambdaQueryWrapper.class))).thenReturn(500L);
 
-            Map<String, Object> result = statisticsService.getKpis(null);
+            Map<String, Object> result = statisticsService.getKpis(null, 2026);
 
             assertEquals(500L, result.get("totalPushed"));
             ArgumentCaptor<LambdaQueryWrapper> captor = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
