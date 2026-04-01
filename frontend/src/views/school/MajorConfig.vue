@@ -76,9 +76,9 @@
         </el-form-item>
         <el-form-item label="学位层次" prop="degreeLevel">
           <el-select v-model="form.degreeLevel" placeholder="请选择学位层次" style="width: 100%">
-            <el-option label="本科" value="BACHELOR" />
-            <el-option label="硕士" value="MASTER" />
-            <el-option label="博士" value="DOCTOR" />
+            <el-option label="本科" value="本科" />
+            <el-option label="硕士" value="硕士" />
+            <el-option label="博士" value="博士" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -100,9 +100,9 @@ import { usePermission } from '@/composables/usePermission'
 const { can } = usePermission()
 
 const degreeLevelMap: Record<string, string> = {
-  BACHELOR: '本科',
-  MASTER: '硕士',
-  DOCTOR: '博士',
+  '本科': '本科',
+  '硕士': '硕士',
+  '博士': '博士',
 }
 
 // ========== 数据 ==========

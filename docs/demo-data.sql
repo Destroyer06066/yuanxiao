@@ -160,6 +160,11 @@ BEGIN
      '{"数学":92,"物理":85,"英语":140,"语文":78,"综合":95}'::jsonb, '阿拉伯语语言文学', 'CONDITIONAL', qinghua_arab_maj_id,
      '需补充语言水平证明（HSK5级及以上）', NOW() + INTERVAL '10 days', '有条件录取，请在截止日期前补充材料', 1, NOW() - INTERVAL '7 days', NOW() - INTERVAL '2 days', qinghua_admin_id, NOW(), NOW(), 0);
 
+    -- ENROLLED_ELSEWHERE: 1人（已被他校录取——该考生已在北大确认录取）
+    INSERT INTO candidate_push (push_id, school_id, major_id, candidate_id, candidate_name, nationality, id_number, email, total_score, subject_scores, intention, status, admission_remark, push_round, pushed_at, operated_at, created_at, updated_at, deleted) VALUES
+    (gen_random_uuid(), '94249003-5e2f-40a2-be75-ee053083fbf7', qinghua_cs_maj_id, 'CAND-017', '赵思涵', '中国', '110101199901012345', 'zhaosihan@example.com', 575.0,
+     '{"数学":120,"物理":115,"英语":112,"语文":118,"综合":110}'::jsonb, '计算机科学与技术', 'ENROLLED_ELSEWHERE', '考生已在北京大学确认录取', 1, NOW() - INTERVAL '12 days', NOW() - INTERVAL '3 days', NOW(), NOW(), 0);
+
     -- REJECTED: 2人
     INSERT INTO candidate_push (push_id, school_id, major_id, candidate_id, candidate_name, nationality, id_number, email, total_score, subject_scores, intention, status, admission_remark, push_round, pushed_at, operated_at, operator_id, created_at, updated_at, deleted) VALUES
     (gen_random_uuid(), '94249003-5e2f-40a2-be75-ee053083fbf7', qinghua_cs_maj_id, 'CAND-010', '汤姆·威尔逊', '澳大利亚', 'AUS1234567', 'tom@example.com', 380.0,

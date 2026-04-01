@@ -10,6 +10,7 @@ import lombok.EqualsAndHashCode;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Map;
 import java.util.UUID;
 
@@ -73,6 +74,26 @@ public class CandidatePush extends BaseEntity {
 
     @TableField("operator_id")
     private UUID operatorId;
+
+    // 补录邀请相关字段
+    @TableField("invitation_sent_at")
+    private Instant invitationSentAt;
+
+    @TableField("invitation_expires_at")
+    private Instant invitationExpiresAt;
+
+    @TableField("invitation_major_id")
+    private UUID invitationMajorId;
+
+    @TableField("invitation_message")
+    private String invitationMessage;
+
+    // 性别：M（男）/ F（女）/ O（其他）
+    private String gender;
+
+    // 出生日期
+    @TableField("birth_date")
+    private LocalDate birthDate;
 
     // JOIN 扩展字段（非数据库列）
     @TableField(exist = false) private String schoolName;

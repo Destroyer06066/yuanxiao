@@ -89,6 +89,24 @@ public class RegistrationPlatformClient {
         post(url, payload, "报到确认推送");
     }
 
+    /**
+     * 推送补录邀请通知（模式二）
+     */
+    public void sendInvitationNotify(UUID schoolId, String candidateId, String candidateName,
+                                     String majorName, String message, String expiresAt) {
+        String url = baseUrl + "/invitation-notify";
+        Map<String, Object> payload = Map.of(
+                "schoolId", schoolId.toString(),
+                "candidateId", candidateId,
+                "candidateName", candidateName,
+                "majorName", majorName,
+                "message", message != null ? message : "",
+                "expiresAt", expiresAt,
+                "notifiedAt", java.time.Instant.now().toString()
+        );
+        post(url, payload, "补录邀请通知推送");
+    }
+
     private void post(String url, Map<String, Object> payload, String logPrefix) {
         try {
             HttpHeaders headers = new HttpHeaders();

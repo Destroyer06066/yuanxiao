@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.campus.platform.entity.SupplementRound;
 import org.apache.ibatis.annotations.Param;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,4 +16,6 @@ public interface SupplementRoundRepository extends BaseMapper<SupplementRound> {
     List<SupplementRound> findAll();
 
     Optional<SupplementRound> findActive();
+
+    Optional<SupplementRound> findActiveWithinPeriod(@Param("now") Instant now);
 }

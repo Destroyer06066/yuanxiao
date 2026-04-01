@@ -42,6 +42,11 @@ public interface CandidatePushRepository extends BaseMapper<CandidatePush> {
     List<CandidatePush> findExpiredConditionals(@Param("now") Instant now);
 
     /**
+     * 查询已到期的补录邀请（INVITED 状态且邀请已过期）
+     */
+    List<CandidatePush> findExpiredInvitations(@Param("now") Instant now);
+
+    /**
      * 导出查询：全量含 JOIN 字段
      */
     List<CandidatePush> selectForExport(@Param("schoolId") UUID schoolId,

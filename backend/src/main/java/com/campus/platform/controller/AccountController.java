@@ -15,6 +15,7 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -123,6 +124,21 @@ public class AccountController {
         }
         accountService.toggleStatus(accountId, req.getStatus());
         return Result.ok();
+    }
+
+    @Operation(summary = "批量导入账号")
+    @PostMapping("/batch-import")
+    @RequireRole({"OP_ADMIN", "SCHOOL_ADMIN"})
+    public Result<List<Map<String, Object>>> batchImport(@RequestBody @Valid List<AccountService.BatchImportItem> items) {
+        if (items == null || items.isEmpty()) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "导入数据不能为空");
+        }
+        if (items.size() > 500) {
+            throw new BusinessException(ErrorCode.INVALID_PARAMETER, "单次导入最多500条记录");
+        }
+        UUID operatorId = SecurityContext.getAccountId();
+        var results = accountService.batchImportAccounts(items, operatorId);
+        return Result.ok(results);
     }
 
     // ========== DTO ==========

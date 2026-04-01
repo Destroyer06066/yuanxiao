@@ -1,6 +1,7 @@
 package com.campus.platform.controller;
 
 import com.campus.platform.common.result.Result;
+import com.campus.platform.security.RequireRole;
 import com.campus.platform.security.SecurityContext;
 import com.campus.platform.service.StatisticsService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,18 +35,24 @@ public class StatisticsController {
         return Result.ok(statisticsService.getAvailableYears(schoolId));
     }
 
-    @Operation(summary = "月度录取趋势")
+    @Operation(summary = "录取趋势")
     @GetMapping("/statistics/trend")
     public Result<List<Map<String, Object>>> getTrend(
             @RequestParam(required = false) UUID schoolId,
-            @RequestParam(required = false, defaultValue = "0") int year) {
+            @RequestParam(required = false, defaultValue = "0") int year,
+            @RequestParam(required = false, defaultValue = "0") int month) {
         // year=0 表示当前年份
         if (year == 0) year = java.time.LocalDate.now().getYear();
         // schoolId=0/null 表示平台级（OP_ADMIN）
         UUID sid = SecurityContext.isOpAdmin()
                 ? (schoolId != null && !schoolId.equals(UUID.fromString("00000000-0000-0000-0000-000000000000")) ? schoolId : null)
                 : SecurityContext.getSchoolId();
-        return Result.ok(statisticsService.getMonthlyTrend(sid, year));
+        // month=0 表示按年查询月度趋势，否则按月查询每日趋势
+        if (month == 0) {
+            return Result.ok(statisticsService.getMonthlyTrend(sid, year));
+        } else {
+            return Result.ok(statisticsService.getDailyTrend(sid, year, month));
+        }
     }
 
     @Operation(summary = "考生状态分布")
@@ -89,5 +96,40 @@ public class StatisticsController {
     public Result<List<Map<String, Object>>> getQuotaUsage() {
         UUID schoolId = SecurityContext.isOpAdmin() ? null : SecurityContext.getSchoolId();
         return Result.ok(statisticsService.getQuotaUsage(schoolId));
+    }
+
+    @Operation(summary = "录取轮次分布")
+    @GetMapping("/statistics/round-dist")
+    public Result<Map<String, Object>> getRoundDistribution() {
+        UUID schoolId = SecurityContext.isOpAdmin() ? null : SecurityContext.getSchoolId();
+        return Result.ok(statisticsService.getRoundDistribution(schoolId));
+    }
+
+    @Operation(summary = "考生推送次数分布")
+    @GetMapping("/statistics/push-count-dist")
+    public Result<Map<String, Object>> getPushCountDistribution() {
+        UUID schoolId = SecurityContext.isOpAdmin() ? null : SecurityContext.getSchoolId();
+        return Result.ok(statisticsService.getPushCountDistribution(schoolId));
+    }
+
+    @Operation(summary = "院校录取区间分布（OP_ADMIN）")
+    @GetMapping("/statistics/school-admission-ranges")
+    @RequireRole({"OP_ADMIN"})
+    public Result<List<Map<String, Object>>> getSchoolAdmissionRanges() {
+        return Result.ok(statisticsService.getSchoolAdmissionRanges());
+    }
+
+    @Operation(summary = "性别分布")
+    @GetMapping("/statistics/gender-dist")
+    public Result<Map<String, Object>> getGenderDistribution() {
+        UUID schoolId = SecurityContext.isOpAdmin() ? null : SecurityContext.getSchoolId();
+        return Result.ok(statisticsService.getGenderDistribution(schoolId));
+    }
+
+    @Operation(summary = "年龄分布")
+    @GetMapping("/statistics/age-dist")
+    public Result<Map<String, Object>> getAgeDistribution() {
+        UUID schoolId = SecurityContext.isOpAdmin() ? null : SecurityContext.getSchoolId();
+        return Result.ok(statisticsService.getAgeDistribution(schoolId));
     }
 }

@@ -35,6 +35,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/admin/SchoolManage.vue'),
         meta: { title: '院校管理', roles: ['OP_ADMIN'] },
       },
+      {
+        path: '/admin/student-statistics',
+        name: 'StudentStatistics',
+        component: () => import('@/views/admin/StudentStatistics.vue'),
+        meta: { title: '考生统计', roles: ['OP_ADMIN'] },
+      },
       // 院校通用路由
       {
         path: '/students',
@@ -107,7 +113,12 @@ const routes: RouteRecordRaw[] = [
         name: 'AuditLogList',
         component: () => import('@/views/admin/AuditLogList.vue'),
         meta: { title: '操作日志', roles: ['OP_ADMIN'] },
-
+      },
+      {
+        path: '/admin/params',
+        name: 'ParamConfig',
+        component: () => import('@/views/admin/ParamConfig.vue'),
+        meta: { title: '系统参数', roles: ['OP_ADMIN'] },
       },
       {
         path: '/notifications',

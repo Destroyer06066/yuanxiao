@@ -1,7 +1,9 @@
 package com.campus.platform.schedule;
 
 import com.campus.platform.entity.CandidatePush;
+import com.campus.platform.entity.enums.CandidateStatus;
 import com.campus.platform.repository.CandidatePushRepository;
+import com.campus.platform.service.AdmissionService;
 import com.campus.platform.service.CandidateService;
 import com.campus.platform.service.NotificationService;
 import lombok.RequiredArgsConstructor;
@@ -17,11 +19,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
- * 定时任务：有条件录取到期检查
+ * 定时任务：有条件录取到期检查 + 补录邀请超时检查
  *
  * 每 10 分钟执行一次：
  * 1. 扫描即将到期（3天内）的 CONDITIONAL 考生，发送预警通知
  * 2. 扫描已到期（截止时间 <= 当前时间）的考生，自动恢复为 PENDING
+ * 3. 扫描已到期的补录邀请，自动变为 REJECTED 并释放名额
  */
 @Slf4j
 @Component
@@ -31,6 +34,7 @@ public class ConditionalExpiryTask {
     private final CandidatePushRepository candidatePushRepository;
     private final CandidateService candidateService;
     private final NotificationService notificationService;
+    private final AdmissionService admissionService;
 
     private static final DateTimeFormatter DF = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
@@ -71,5 +75,29 @@ public class ConditionalExpiryTask {
         }
 
         log.info("[定时任务] 有条件录取到期检查完成");
+    }
+
+    /**
+     * 检查补录邀请超时（每10分钟执行一次）
+     */
+    @Scheduled(fixedDelay = 600_000, initialDelay = 120_000)
+    @Transactional
+    public void processExpiredInvitations() {
+        Instant now = Instant.now();
+        log.info("[定时任务] 开始检查补录邀请超时: now={}", now);
+
+        List<CandidatePush> expiredInvitations = candidatePushRepository
+                .findExpiredInvitations(now);
+        log.info("[定时任务] 找到 {} 条超时邀请记录", expiredInvitations.size());
+
+        for (CandidatePush push : expiredInvitations) {
+            try {
+                admissionService.handleInvitationExpired(push.getPushId());
+            } catch (Exception e) {
+                log.error("[定时任务] 处理邀请超时失败: pushId={}", push.getPushId(), e);
+            }
+        }
+
+        log.info("[定时任务] 补录邀请超时检查完成");
     }
 }

@@ -31,18 +31,29 @@ public class MajorController {
 
     @Operation(summary = "查询本校专业列表")
     @GetMapping
-    @RequireRole({"SCHOOL_ADMIN", "SCHOOL_STAFF"})
-    public Result<List<Map<String, Object>>> list() {
+    @RequireRole({"OP_ADMIN", "SCHOOL_ADMIN", "SCHOOL_STAFF"})
+    public Result<Map<String, Object>> list(
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int pageSize) {
         UUID schoolId = SecurityContext.getSchoolId();
-        if (schoolId == null) return Result.ok(List.of());
-        List<Major> majors = majorRepository.findBySchoolId(schoolId);
-        List<Map<String, Object>> result = majors.stream().map(m -> Map.<String, Object>of(
+        if (schoolId == null) return Result.ok(Map.of("records", List.of(), "total", 0L, "page", page, "pageSize", pageSize));
+
+        List<Major> majors = (status != null && !status.isEmpty())
+                ? majorRepository.findBySchoolIdAndStatus(schoolId, status)
+                : majorRepository.findBySchoolId(schoolId);
+
+        int total = majors.size();
+        int from = Math.min((page - 1) * pageSize, total);
+        int to = Math.min(from + pageSize, total);
+        List<Map<String, Object>> records = majors.subList(from, to).stream().map(m -> Map.<String, Object>of(
                 "majorId", m.getMajorId().toString(),
                 "majorName", m.getMajorName(),
                 "degreeLevel", m.getDegreeLevel(),
-                "status", m.getStatus()
+                "status", m.getStatus(),
+                "createdAt", m.getCreatedAt() != null ? m.getCreatedAt().toString() : ""
         )).collect(Collectors.toList());
-        return Result.ok(result);
+        return Result.ok(Map.of("records", records, "total", (long) total, "page", page, "pageSize", pageSize));
     }
 
     @Operation(summary = "创建专业")

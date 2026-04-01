@@ -36,6 +36,22 @@ export interface UpdateAccountRequest {
   schoolId?: string
 }
 
+export interface BatchImportItem {
+  username: string
+  realName: string
+  role: string
+  schoolName?: string
+  password?: string
+}
+
+export interface BatchImportResult {
+  username: string
+  realName: string
+  status: 'pending' | 'success' | 'failed'
+  password?: string
+  error?: string
+}
+
 export const getAccounts = (params?: AccountQuery) =>
   axios.get<Result<PageResult<Account>>>('/v1/accounts', { params })
 
@@ -50,3 +66,6 @@ export const resetAccountPassword = (accountId: string) =>
 
 export const toggleAccountStatus = (accountId: string, status: string) =>
   axios.patch(`/v1/accounts/${accountId}/status`, { status })
+
+export const batchImportAccounts = (data: BatchImportItem[]) =>
+  axios.post<Result<BatchImportResult[]>>('/v1/accounts/batch-import', data)

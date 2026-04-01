@@ -129,6 +129,9 @@
             <span class="score-highlight">{{ row.totalScore }}</span>
           </template>
         </el-table-column>
+        <el-table-column prop="pushRound" label="轮次" width="80">
+          <template #default="{ row }">第 {{ row.pushRound }} 轮</template>
+        </el-table-column>
         <el-table-column prop="intention" label="意向方向" min-width="150" show-overflow-tooltip />
         <el-table-column prop="status" label="状态" width="130">
           <template #default="{ row }">
@@ -363,6 +366,8 @@ const statusOptions = [
   { value: 'CHECKED_IN', label: '已报到' },
   { value: 'REJECTED', label: '已拒绝' },
   { value: 'INVALIDATED', label: '录取已失效' },
+  { value: 'ENROLLED_ELSEWHERE', label: '已被他校录取' },
+  { value: 'INVITED', label: '已发出邀请' },
 ]
 
 const statusLabelMap = Object.fromEntries(statusOptions.map(s => [s.value, s.label]))

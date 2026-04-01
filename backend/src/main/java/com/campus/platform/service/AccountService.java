@@ -44,6 +44,7 @@ public class AccountService {
     private static final String SESSION_PREFIX = "session:";
     private static final Duration SESSION_TTL = Duration.ofHours(8);
     private static final String CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+    private static final String DEFAULT_PASSWORD = "Aa123456!";
 
     // ========== 登录 ==========
 
@@ -355,5 +356,124 @@ public class AccountService {
         private String role;
         private String phone;
         private UUID schoolId;
+    }
+
+    /**
+     * 批量导入账号
+     */
+    @Transactional
+    public List<Map<String, Object>> batchImportAccounts(List<BatchImportItem> items, UUID operatorId) {
+        List<Map<String, Object>> results = new java.util.ArrayList<>();
+
+        // 构建学校名称到ID的映射
+        Map<String, UUID> schoolNameToId = schoolRepository.selectList(null).stream()
+                .collect(Collectors.toMap(School::getSchoolName, School::getSchoolId, (a, b) -> a));
+
+        for (BatchImportItem item : items) {
+            Map<String, Object> result = new java.util.HashMap<>();
+            result.put("username", item.getUsername());
+            result.put("realName", item.getRealName());
+            result.put("status", "pending");
+
+            try {
+                // 校验必填项
+                if (item.getUsername() == null || item.getUsername().isBlank()) {
+                    result.put("status", "failed");
+                    result.put("error", "用户名为空");
+                    results.add(result);
+                    continue;
+                }
+                if (item.getRealName() == null || item.getRealName().isBlank()) {
+                    result.put("status", "failed");
+                    result.put("error", "姓名为空");
+                    results.add(result);
+                    continue;
+                }
+                if (item.getRole() == null || item.getRole().isBlank()) {
+                    result.put("status", "failed");
+                    result.put("error", "角色为空");
+                    results.add(result);
+                    continue;
+                }
+
+                // 校验用户名是否已存在
+                if (accountRepository.existsByUsername(item.getUsername())) {
+                    result.put("status", "failed");
+                    result.put("error", "用户名已存在");
+                    results.add(result);
+                    continue;
+                }
+
+                // 转换角色
+                String roleCode = convertRole(item.getRole());
+                if (roleCode == null) {
+                    result.put("status", "failed");
+                    result.put("error", "角色无效，可选值：院校管理员、院校工作人员、运营管理员");
+                    results.add(result);
+                    continue;
+                }
+
+                // 查找学校ID
+                UUID schoolId = null;
+                if (!"OP_ADMIN".equals(roleCode) && item.getSchoolName() != null && !item.getSchoolName().isBlank()) {
+                    schoolId = schoolNameToId.get(item.getSchoolName());
+                    if (schoolId == null) {
+                        result.put("status", "failed");
+                        result.put("error", "所属院校不存在：" + item.getSchoolName());
+                        results.add(result);
+                        continue;
+                    }
+                }
+
+                // 创建账号
+                String rawPassword = (item.getPassword() != null && !item.getPassword().isBlank())
+                        ? item.getPassword() : DEFAULT_PASSWORD;
+
+                Account account = new Account();
+                account.setAccountId(UUID.randomUUID());
+                account.setUsername(item.getUsername());
+                account.setPasswordHash(passwordEncoder.encode(rawPassword));
+                account.setRole(roleCode);
+                account.setSchoolId(schoolId);
+                account.setRealName(item.getRealName());
+                account.setStatus("ACTIVE");
+                account.setMustChangePassword(true);
+                account.setFailedLoginCount(0);
+                account.setCreatedBy(operatorId);
+                accountRepository.insert(account);
+
+                result.put("status", "success");
+                result.put("password", rawPassword);
+                log.info("批量导入账号: accountId={}, username={}, role={}", account.getAccountId(), item.getUsername(), roleCode);
+
+            } catch (Exception e) {
+                result.put("status", "failed");
+                result.put("error", "导入失败: " + e.getMessage());
+                log.error("批量导入账号失败: username={}", item.getUsername(), e);
+            }
+
+            results.add(result);
+        }
+
+        return results;
+    }
+
+    private String convertRole(String roleName) {
+        if (roleName == null) return null;
+        return switch (roleName.trim()) {
+            case "院校管理员" -> "SCHOOL_ADMIN";
+            case "院校工作人员" -> "SCHOOL_STAFF";
+            case "运营管理员" -> "OP_ADMIN";
+            default -> null;
+        };
+    }
+
+    @lombok.Data
+    public static class BatchImportItem {
+        private String username;
+        private String realName;
+        private String role;
+        private String schoolName;
+        private String password;
     }
 }

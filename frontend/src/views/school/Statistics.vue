@@ -3,9 +3,19 @@
     <div class="page-header">
       <h2 class="page-title">数据统计</h2>
       <div class="header-actions">
-        <el-select v-model="selectedYear" style="width: 140px" @change="loadAll">
+        <el-select v-model="selectedYear" style="width: 120px" @change="handleYearChange">
           <el-option v-for="y in years" :key="y" :label="y + '年'" :value="y" />
         </el-select>
+        <el-date-picker
+          v-model="selectedMonth"
+          type="month"
+          placeholder="选择月份"
+          style="width: 140px; margin-left: 8px"
+          format="MM月"
+          value-format="YYYY-MM"
+          @change="loadTrend"
+          :clearable="false"
+        />
       </div>
     </div>
 
@@ -74,20 +84,22 @@ import { Loading } from '@element-plus/icons-vue'
 import VChart from 'vue-echarts'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
-import { LineChart, PieChart } from 'echarts/charts'
+import { LineChart, PieChart, BarChart } from 'echarts/charts'
 import {
   TitleComponent, TooltipComponent, LegendComponent,
   GridComponent, DataZoomComponent,
 } from 'echarts/components'
+import * as echarts from 'echarts'
 import {
   getKpis, getTrend, getStatusDistribution, getMajorRanking, getAvailableYears,
-  type KpiData, type MonthlyTrend, type StatusDistItem, type MajorRankingItem,
+  type KpiData, type MonthlyTrend, type DailyTrend, type StatusDistItem, type MajorRankingItem,
 } from '@/api/statistics'
 
 use([CanvasRenderer, LineChart, PieChart, TitleComponent, TooltipComponent, LegendComponent, GridComponent, DataZoomComponent])
 
-// ========== 年份选择 ==========
+// ========== 年份和月份选择 ==========
 const selectedYear = ref(new Date().getFullYear())
+const selectedMonth = ref(new Date().toISOString().slice(0, 7))
 const years = ref<number[]>([])
 
 async function loadYears() {
@@ -101,6 +113,15 @@ async function loadYears() {
     // fallback to current year only
     years.value = [new Date().getFullYear()]
   }
+}
+
+function handleYearChange() {
+  // 重置月份为选择年份的1月
+  const [year] = selectedMonth.value.split('-').map(Number)
+  if (year !== selectedYear.value) {
+    selectedMonth.value = `${selectedYear.value}-01`
+  }
+  loadTrend()
 }
 
 // ========== KPI ==========
@@ -137,31 +158,60 @@ const computedKpis = computed<KpiItem[]>(() => {
 })
 
 // ========== 趋势图 ==========
-const trendData = ref<MonthlyTrend[]>([])
+const trendData = ref<(MonthlyTrend | DailyTrend)[]>([])
 const trendLoading = ref(false)
+const isDailyMode = computed(() => {
+  return trendData.value.length > 0 && 'date' in trendData.value[0]
+})
 
 const trendOption = computed(() => {
-  const months = trendData.value.map(d => d.month)
-  const series = [
-    { name: '待处理', key: 'pending' as const, color: '#909399' },
-    { name: '已录取', key: 'admitted' as const, color: '#409eff' },
-    { name: '已确认', key: 'confirmed' as const, color: '#67c23a' },
-    { name: '已报到', key: 'checkedIn' as const, color: '#25a861' },
-    { name: '已拒绝', key: 'rejected' as const, color: '#f56c6c' },
-  ]
-  return {
-    tooltip: { trigger: 'axis' },
-    legend: { bottom: 0, data: series.map(s => s.name) },
-    grid: { top: 10, bottom: 40, left: 50, right: 20 },
-    xAxis: { type: 'category', data: months, boundaryGap: false },
-    yAxis: { type: 'value', minInterval: 1 },
-    series: series.map(s => ({
-      name: s.name,
-      type: 'line' as const,
-      data: trendData.value.map(d => d[s.key]),
-      smooth: true,
-      itemStyle: { color: s.color },
-    })),
+  if (isDailyMode.value) {
+    // 每日趋势：柱状图
+    const dailyData = trendData.value as DailyTrend[]
+    return {
+      tooltip: { trigger: 'axis' },
+      grid: { top: 10, bottom: 30, left: 50, right: 20 },
+      xAxis: { type: 'category', data: dailyData.map(d => d.date) },
+      yAxis: { type: 'value', minInterval: 1, name: '录取人数' },
+      series: [{
+        name: '录取人数',
+        type: 'bar' as const,
+        data: dailyData.map(d => d.admitted),
+        itemStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: '#409eff' },
+            { offset: 1, color: '#67c23a' },
+          ]),
+          borderRadius: [4, 4, 0, 0],
+        },
+        barWidth: '60%',
+      }],
+    }
+  } else {
+    // 月度趋势：折线图
+    const monthlyData = trendData.value as MonthlyTrend[]
+    const months = monthlyData.map(d => d.month)
+    const series = [
+      { name: '待处理', key: 'pending' as const, color: '#909399' },
+      { name: '已录取', key: 'admitted' as const, color: '#409eff' },
+      { name: '已确认', key: 'confirmed' as const, color: '#67c23a' },
+      { name: '已报到', key: 'checkedIn' as const, color: '#25a861' },
+      { name: '已拒绝', key: 'rejected' as const, color: '#f56c6c' },
+    ]
+    return {
+      tooltip: { trigger: 'axis' },
+      legend: { bottom: 0, data: series.map(s => s.name) },
+      grid: { top: 10, bottom: 40, left: 50, right: 20 },
+      xAxis: { type: 'category', data: months, boundaryGap: false },
+      yAxis: { type: 'value', minInterval: 1 },
+      series: series.map(s => ({
+        name: s.name,
+        type: 'line' as const,
+        data: monthlyData.map(d => d[s.key]),
+        smooth: true,
+        itemStyle: { color: s.color },
+      })),
+    }
   }
 })
 
@@ -207,7 +257,8 @@ async function loadKpis() {
 async function loadTrend() {
   trendLoading.value = true
   try {
-    const res = await getTrend({ year: selectedYear.value })
+    const [year, month] = selectedMonth.value.split('-').map(Number)
+    const res = await getTrend({ year, month })
     trendData.value = res.data.data
   } catch {}
   finally { trendLoading.value = false }
@@ -232,7 +283,22 @@ async function loadRanking() {
 }
 
 async function loadAll() {
-  await Promise.all([loadYears(), loadKpis(), loadTrend(), loadDist(), loadRanking()])
+  const prevYear = selectedYear.value
+  await loadYears()
+  // loadYears 可能改变 selectedYear，确保月份与年份一致
+  if (prevYear !== selectedYear.value) {
+    // 年份发生变化，月份重置为该年1月
+    selectedMonth.value = `${selectedYear.value}-01`
+  } else {
+    // 年份没变，保持当前月份或设为当前年月
+    const currentYear = new Date().getFullYear()
+    if (selectedYear.value !== currentYear) {
+      selectedMonth.value = `${selectedYear.value}-01`
+    } else {
+      selectedMonth.value = new Date().toISOString().slice(0, 7)
+    }
+  }
+  await Promise.all([loadKpis(), loadTrend(), loadDist(), loadRanking()])
 }
 
 onMounted(() => {

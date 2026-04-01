@@ -37,6 +37,7 @@ public class CandidateService {
     private final RegistrationPlatformClient registrationPlatformClient;
     private final OperationLogService operationLogService;
     private final NotificationService notificationService;
+    private final SupplementRoundService supplementRoundService;
 
     /**
      * 接收报名平台推送的考生成绩
@@ -57,6 +58,14 @@ public class CandidateService {
                 !push.getStatus().equals(CandidateStatus.INVALIDATED.name())) {
                 throw new BusinessException(ErrorCode.INTEGRATION_PUSH_ERROR,
                         "考生已在录取流程中，无法重新推送");
+            }
+            // REJECTED/INVALIDATED 状态重新推送时，必须在补录周期内
+            if (push.getStatus().equals(CandidateStatus.REJECTED.name()) ||
+                push.getStatus().equals(CandidateStatus.INVALIDATED.name())) {
+                if (!supplementRoundService.isWithinSupplementPeriod()) {
+                    throw new BusinessException(ErrorCode.INTEGRATION_PUSH_ERROR,
+                            "当前不在补录周期内，无法重新推送成绩");
+                }
             }
             // 重新开启
             push.setStatus(CandidateStatus.PENDING.name());

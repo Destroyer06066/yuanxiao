@@ -43,6 +43,7 @@ a {
   &.CHECKED_IN { color: #0d9a58; background: #d1f0e3; border-color: #a8e0c5; }
   &.REJECTED   { color: #f56c6c; background: #fef0f0; border-color: #fde2e2; }
   &.INVALIDATED { color: #c0c4cc; background: #f4f4f5; border-color: #d3d4d6; }
+  &.ENROLLED_ELSEWHERE { color: #909399; background: #f0f0f0; border-color: #dcdfe6; }
 }
 
 .el-table {

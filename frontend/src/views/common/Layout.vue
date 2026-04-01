@@ -30,9 +30,21 @@
               <el-icon><RefreshRight /></el-icon>
               <template #title>补录管理</template>
             </el-menu-item>
+          </el-sub-menu>
+
+          <el-sub-menu index="message">
+            <template #title><el-icon><Message /></el-icon><span>消息</span></template>
+            <el-menu-item index="/notifications">
+              <el-icon><Bell /></el-icon>
+              <template #title>站内通知</template>
+            </el-menu-item>
             <el-menu-item index="/statistics">
               <el-icon><DataBoard /></el-icon>
               <template #title>数据统计</template>
+            </el-menu-item>
+            <el-menu-item index="/admin/student-statistics">
+              <el-icon><DataAnalysis /></el-icon>
+              <template #title>考生统计</template>
             </el-menu-item>
           </el-sub-menu>
 
@@ -58,9 +70,9 @@
               <el-icon><Document /></el-icon>
               <template #title>操作日志</template>
             </el-menu-item>
-            <el-menu-item index="/notifications">
-              <el-icon><Bell /></el-icon>
-              <template #title>站内通知</template>
+            <el-menu-item index="/admin/params">
+              <el-icon><Setting /></el-icon>
+              <template #title>系统参数</template>
             </el-menu-item>
           </el-sub-menu>
         </template>
@@ -95,15 +107,15 @@
             </el-menu-item>
           </el-sub-menu>
 
-          <el-sub-menu index="data">
-            <template #title><el-icon><DataBoard /></el-icon><span>数据</span></template>
+          <el-sub-menu index="message">
+            <template #title><el-icon><Message /></el-icon><span>消息</span></template>
+            <el-menu-item index="/notifications">
+              <el-icon><Bell /></el-icon>
+              <template #title>站内通知</template>
+            </el-menu-item>
             <el-menu-item index="/statistics">
               <el-icon><DataBoard /></el-icon>
               <template #title>数据统计</template>
-            </el-menu-item>
-            <el-menu-item index="/verification">
-              <el-icon><Stamp /></el-icon>
-              <template #title>成绩核验</template>
             </el-menu-item>
           </el-sub-menu>
 
@@ -113,10 +125,6 @@
             <el-menu-item index="/accounts">
               <el-icon><Avatar /></el-icon>
               <template #title>账号管理</template>
-            </el-menu-item>
-            <el-menu-item index="/notifications">
-              <el-icon><Bell /></el-icon>
-              <template #title>站内通知</template>
             </el-menu-item>
           </el-sub-menu>
         </template>
@@ -209,7 +217,8 @@ import {
   DataLine, RefreshRight, Stamp, Check,
   DataBoard, Avatar, Bell, Expand, Fold,
   ArrowDown, SwitchButton, School,
-  TrendCharts, Setting, Document, Key
+  TrendCharts, Setting, Document, Key,
+  Message, DataAnalysis
 } from '@element-plus/icons-vue'
 
 const router = useRouter()

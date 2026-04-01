@@ -8,7 +8,9 @@ public enum CandidateStatus {
     MATERIAL_RECEIVED("材料已收"),
     CHECKED_IN("已报到"),
     REJECTED("已拒绝"),
-    INVALIDATED("录取已失效");
+    INVALIDATED("录取已失效"),
+    ENROLLED_ELSEWHERE("已被他校录取"),
+    INVITED("已发出邀请");
 
     private final String description;
 
@@ -21,10 +23,14 @@ public enum CandidateStatus {
     }
 
     public boolean isTerminal() {
-        return this == CHECKED_IN || this == REJECTED || this == INVALIDATED;
+        return this == CHECKED_IN || this == REJECTED || this == INVALIDATED || this == ENROLLED_ELSEWHERE;
     }
 
     public boolean isOperable() {
-        return this == PENDING || this == CONDITIONAL || this == ADMITTED;
+        return this == PENDING || this == CONDITIONAL || this == ADMITTED || this == INVITED;
+    }
+
+    public boolean canBeInvited() {
+        return this == PENDING || this == REJECTED || this == INVALIDATED;
     }
 }

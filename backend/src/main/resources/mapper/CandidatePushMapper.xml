@@ -64,6 +64,12 @@
           AND condition_deadline &lt;= #{now}
     </select>
 
+    <select id="findExpiredInvitations" resultType="com.campus.platform.entity.CandidatePush">
+        SELECT * FROM candidate_push
+        WHERE status = 'INVITED'
+          AND invitation_expires_at &lt;= #{now}
+    </select>
+
     <select id="findById" resultType="com.campus.platform.entity.CandidatePush">
         SELECT * FROM candidate_push WHERE push_id = #{pushId}
     </select>

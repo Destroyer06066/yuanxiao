@@ -115,6 +115,41 @@ public class StatisticsService {
     }
 
     /**
+     * 每日趋势：指定年月的每天录取人数
+     */
+    public List<Map<String, Object>> getDailyTrend(UUID schoolId, int year, int month) {
+        Instant startOfMonth = LocalDate.of(year, month, 1).atStartOfDay(ZoneId.systemDefault()).toInstant();
+        Instant endOfMonth = LocalDateTime.of(year, month, 1, 23, 59, 59).atZone(ZoneId.systemDefault()).toInstant();
+        // 计算月末最后一天
+        endOfMonth = LocalDate.of(year, month, 1).plusMonths(1).minusDays(1).atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toInstant();
+
+        LambdaQueryWrapper<CandidatePush> q = new LambdaQueryWrapper<>();
+        if (schoolId != null) q.eq(CandidatePush::getSchoolId, schoolId);
+        q.between(CandidatePush::getOperatedAt, startOfMonth, endOfMonth);
+        q.isNotNull(CandidatePush::getOperatedAt);
+
+        List<CandidatePush> records = candidatePushRepository.selectList(q);
+
+        // 按日期 + 状态分组
+        Map<Integer, Map<String, Long>> grouped = new TreeMap<>();
+        for (CandidatePush p : records) {
+            int day = p.getOperatedAt().atZone(ZoneId.systemDefault()).getDayOfMonth();
+            grouped.computeIfAbsent(day, k -> new HashMap<>())
+                   .merge(p.getStatus(), 1L, Long::sum);
+        }
+
+        int daysInMonth = LocalDate.of(year, month, 1).lengthOfMonth();
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (int day = 1; day <= daysInMonth; day++) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("date", day + "日");
+            row.put("admitted", grouped.getOrDefault(day, Map.of()).getOrDefault(CandidateStatus.ADMITTED.name(), 0L));
+            result.add(row);
+        }
+        return result;
+    }
+
+    /**
      * 状态分布：各状态考生数量
      */
     public List<Map<String, Object>> getStatusDistribution(UUID schoolId) {
@@ -375,6 +410,173 @@ public class StatisticsService {
                         (Long) a.get("confirmed") + (Long) a.get("checkedIn")))
                 .limit(limit)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 录取轮次分布统计
+     */
+    public Map<String, Object> getRoundDistribution(UUID schoolId) {
+        LambdaQueryWrapper<CandidatePush> q = buildSchoolFilter(schoolId);
+        List<CandidatePush> records = candidatePushRepository.selectList(q);
+
+        Map<Integer, Long> counts = records.stream()
+                .filter(p -> p.getPushRound() != null)
+                .collect(Collectors.groupingBy(CandidatePush::getPushRound, Collectors.counting()));
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        counts.forEach((k, v) -> result.put(String.valueOf(k), v));
+        return result;
+    }
+
+    /**
+     * 考生推送次数分布（按 candidate_id 去重统计被推送次数）
+     * 1次、2次、3次、4次、5次、6次及以上
+     */
+    public Map<String, Object> getPushCountDistribution(UUID schoolId) {
+        LambdaQueryWrapper<CandidatePush> q = new LambdaQueryWrapper<>();
+        if (schoolId != null) q.eq(CandidatePush::getSchoolId, schoolId);
+        List<CandidatePush> records = candidatePushRepository.selectList(q);
+
+        // 按 candidate_id 分组，统计每个考生被推送的次数
+        Map<String, Long> pushCounts = records.stream()
+                .filter(p -> p.getCandidateId() != null)
+                .collect(Collectors.groupingBy(CandidatePush::getCandidateId, Collectors.counting()));
+
+        long once = pushCounts.values().stream().filter(c -> c == 1).count();
+        long twice = pushCounts.values().stream().filter(c -> c == 2).count();
+        long three = pushCounts.values().stream().filter(c -> c == 3).count();
+        long four = pushCounts.values().stream().filter(c -> c == 4).count();
+        long five = pushCounts.values().stream().filter(c -> c == 5).count();
+        long sixPlus = pushCounts.values().stream().filter(c -> c >= 6).count();
+
+        return Map.of(
+                "once", once,
+                "twice", twice,
+                "three", three,
+                "four", four,
+                "five", five,
+                "sixPlus", sixPlus,
+                "total", once + twice + three + four + five + sixPlus
+        );
+    }
+
+    /**
+     * 性别分布统计
+     */
+    public Map<String, Object> getGenderDistribution(UUID schoolId) {
+        LambdaQueryWrapper<CandidatePush> q = new LambdaQueryWrapper<>();
+        if (schoolId != null) q.eq(CandidatePush::getSchoolId, schoolId);
+        List<CandidatePush> records = candidatePushRepository.selectList(q);
+
+        Map<String, Long> counts = records.stream()
+                .filter(p -> p.getGender() != null)
+                .collect(Collectors.groupingBy(CandidatePush::getGender, Collectors.counting()));
+
+        long male = counts.getOrDefault("M", 0L);
+        long female = counts.getOrDefault("F", 0L);
+        long other = counts.getOrDefault("O", 0L);
+        long unknown = records.stream()
+                .filter(p -> p.getGender() == null)
+                .map(CandidatePush::getCandidateId)
+                .distinct()
+                .count();
+
+        return Map.of(
+                "male", male,
+                "female", female,
+                "other", other,
+                "unknown", unknown,
+                "total", male + female + other + unknown
+        );
+    }
+
+    /**
+     * 年龄分布统计（按出生日期计算年龄）
+     */
+    public Map<String, Object> getAgeDistribution(UUID schoolId) {
+        LambdaQueryWrapper<CandidatePush> q = new LambdaQueryWrapper<>();
+        if (schoolId != null) q.eq(CandidatePush::getSchoolId, schoolId);
+        List<CandidatePush> records = candidatePushRepository.selectList(q);
+
+        // 过滤有出生日期的记录
+        List<CandidatePush> recordsWithBirthDate = records.stream()
+                .filter(p -> p.getBirthDate() != null)
+                .toList();
+
+        int currentYear = LocalDate.now().getYear();
+
+        // 按年龄段分组
+        Map<String, Long> ageGroups = recordsWithBirthDate.stream()
+                .collect(Collectors.groupingBy(p -> {
+                    int birthYear = p.getBirthDate().getYear();
+                    int age = currentYear - birthYear;
+                    if (age < 18) return "17岁以下";
+                    else if (age <= 25) return "18-25岁";
+                    else if (age <= 30) return "26-30岁";
+                    else if (age <= 35) return "31-35岁";
+                    else if (age <= 40) return "36-40岁";
+                    else return "41岁以上";
+                }, Collectors.counting()));
+
+        // 统计未知年龄（无出生日期）的独立考生数
+        Set<String> candidateIdsWithBirthDate = recordsWithBirthDate.stream()
+                .map(CandidatePush::getCandidateId)
+                .collect(Collectors.toSet());
+        long unknownAge = records.stream()
+                .filter(p -> p.getBirthDate() == null && candidateIdsWithBirthDate.add(p.getCandidateId()))
+                .count();
+
+        return Map.of(
+                "under18", ageGroups.getOrDefault("17岁以下", 0L),
+                "age18to25", ageGroups.getOrDefault("18-25岁", 0L),
+                "age26to30", ageGroups.getOrDefault("26-30岁", 0L),
+                "age31to35", ageGroups.getOrDefault("31-35岁", 0L),
+                "age36to40", ageGroups.getOrDefault("36-40岁", 0L),
+                "over41", ageGroups.getOrDefault("41岁以上", 0L),
+                "unknown", unknownAge,
+                "total", records.stream().map(CandidatePush::getCandidateId).distinct().count()
+        );
+    }
+
+    /**
+     * 院校录取人数区间分布（OP_ADMIN 专用）
+     * 区间：0-10, 11-30, 31-50, 51-100, 100+
+     */
+    public List<Map<String, Object>> getSchoolAdmissionRanges() {
+        List<School> schools = schoolRepository.selectList(null);
+
+        // 各院校录取人数（ADMITTED + CONDITIONAL）
+        Map<String, Integer> schoolAdmitCounts = new HashMap<>();
+        for (School school : schools) {
+            LambdaQueryWrapper<CandidatePush> q = new LambdaQueryWrapper<>();
+            q.eq(CandidatePush::getSchoolId, school.getSchoolId());
+            q.in(CandidatePush::getStatus,
+                    CandidateStatus.ADMITTED.name(),
+                    CandidateStatus.CONDITIONAL.name());
+            long count = candidatePushRepository.selectCount(q);
+            schoolAdmitCounts.put(school.getSchoolId().toString(), (int) count);
+        }
+
+        // 按区间分组
+        int range0to10 = 0, range11to30 = 0, range31to50 = 0, range51to100 = 0, range100plus = 0;
+        int count0to10 = 0, count11to30 = 0, count31to50 = 0, count51to100 = 0, count100plus = 0;
+
+        for (Map.Entry<String, Integer> e : schoolAdmitCounts.entrySet()) {
+            int cnt = e.getValue();
+            if (cnt <= 10) { count0to10++; range0to10 += cnt; }
+            else if (cnt <= 30) { count11to30++; range11to30 += cnt; }
+            else if (cnt <= 50) { count31to50++; range31to50 += cnt; }
+            else if (cnt <= 100) { count51to100++; range51to100 += cnt; }
+            else { count100plus++; range100plus += cnt; }
+        }
+
+        return List.of(
+                Map.of("range", "0-10", "schoolCount", count0to10, "admissionCount", range0to10),
+                Map.of("range", "11-30", "schoolCount", count11to30, "admissionCount", range11to30),
+                Map.of("range", "31-50", "schoolCount", count31to50, "admissionCount", range31to50),
+                Map.of("range", "51-100", "schoolCount", count51to100, "admissionCount", range51to100),
+                Map.of("range", "100+", "schoolCount", count100plus, "admissionCount", range100plus)
+        );
     }
 
     // ========== 私有辅助 ==========

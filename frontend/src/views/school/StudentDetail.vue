@@ -100,7 +100,7 @@
             </template>
 
             <!-- 已终态 -->
-            <template v-if="['CHECKED_IN', 'REJECTED', 'INVALIDATED'].includes(student?.status || '')">
+            <template v-if="['CHECKED_IN', 'REJECTED', 'INVALIDATED', 'ENROLLED_ELSEWHERE'].includes(student?.status || '')">
               <el-alert
                 :title="statusFinalText"
                 type="info"
@@ -147,7 +147,7 @@
       </el-card>
 
       <!-- 录取信息（已录取时显示） -->
-      <el-card class="info-card" v-if="student?.status !== 'PENDING' && student?.status !== 'INVALIDATED'">
+      <el-card class="info-card" v-if="student?.status !== 'PENDING' && student?.status !== 'INVALIDATED' && student?.status !== 'ENROLLED_ELSEWHERE'">
         <h4 class="section-title">录取信息</h4>
         <el-descriptions :column="2" border size="small">
           <el-descriptions-item label="录取专业">{{ student?.admissionMajor || '-' }}</el-descriptions-item>
@@ -303,6 +303,7 @@ const statusLabelMap: Record<string, string> = {
   CHECKED_IN: '已报到',
   REJECTED: '已拒绝',
   INVALIDATED: '录取已失效',
+  ENROLLED_ELSEWHERE: '已被他校录取',
 }
 
 const canOperate = computed(() =>
@@ -313,6 +314,7 @@ const statusFinalText = computed(() => {
     CHECKED_IN: '考生已报到，流程结束',
     REJECTED: '考生已被拒绝',
     INVALIDATED: '录取已失效（被其他院校确认）',
+    ENROLLED_ELSEWHERE: '考生已被其他院校录取，不可操作',
   }
   return map[student.value?.status] || ''
 })

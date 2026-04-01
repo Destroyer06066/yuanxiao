@@ -52,6 +52,7 @@ public final class ErrorCode {
     public static final Integer VERIFICATION_NOT_FOUND      = 30008;
     public static final Integer MATERIAL_ALREADY_RECEIVED  = 30009;
     public static final Integer CHECKIN_ALREADY_DONE        = 30010;
+    public static final Integer OPERATION_NOT_ALLOWED       = 30011;
 
     // ========== 外部接口 4xxxx ==========
     public static final Integer INTEGRATION_PUSH_ERROR      = 40001;

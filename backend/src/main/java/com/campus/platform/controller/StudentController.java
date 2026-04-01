@@ -7,6 +7,7 @@ import com.campus.platform.common.result.Result;
 import com.campus.platform.entity.CandidatePush;
 import com.campus.platform.entity.OperationLog;
 import com.campus.platform.entity.enums.CandidateStatus;
+import com.campus.platform.security.AuditAction;
 import com.campus.platform.security.RequireRole;
 import com.campus.platform.security.SecurityContext;
 import com.campus.platform.service.AdmissionService;
@@ -72,6 +73,15 @@ public class StudentController {
                 pushTimeEnd != null ? pushTimeEnd.plusDays(1).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant() : null,
                 majorId, round, sort, order, page, pageSize);
 
+        // OP_ADMIN 视角：ENROLLED_ELSEWHERE → ADMITTED
+        if (SecurityContext.isOpAdmin()) {
+            result.getRecords().forEach(r -> {
+                if ("ENROLLED_ELSEWHERE".equals(r.getStatus())) {
+                    r.setStatus("ADMITTED");
+                }
+            });
+        }
+
         return Result.ok(Map.of(
                 "records", result.getRecords(),
                 "total", result.getTotal(),
@@ -92,6 +102,7 @@ public class StudentController {
     @Operation(summary = "直接录取")
     @PostMapping("/admit")
     @RequireRole({"SCHOOL_ADMIN", "SCHOOL_STAFF"})
+    @AuditAction("ADMIT")
     public Result<Void> admit(@RequestBody @Valid AdmitRequest req) {
         admissionService.directAdmission(req.getPushId(), req.getMajorId(),
                 req.getRemark(), SecurityContext.getAccountId());
@@ -101,6 +112,7 @@ public class StudentController {
     @Operation(summary = "有条件录取")
     @PostMapping("/conditional")
     @RequireRole({"SCHOOL_ADMIN", "SCHOOL_STAFF"})
+    @AuditAction("CONDITIONAL")
     public Result<Void> conditional(@RequestBody @Valid ConditionalRequest req) {
         admissionService.conditionalAdmission(req.getPushId(), req.getMajorId(),
                 req.getConditionDesc(), req.getConditionDeadline(),
@@ -111,6 +123,7 @@ public class StudentController {
     @Operation(summary = "批量拒绝")
     @PostMapping("/batch-reject")
     @RequireRole({"SCHOOL_ADMIN", "SCHOOL_STAFF"})
+    @AuditAction("REJECT")
     public Result<Void> batchReject(@RequestBody @Valid BatchRejectRequest req) {
         for (UUID pushId : req.getPushIds()) {
             admissionService.rejectAdmission(pushId, null, SecurityContext.getAccountId());
@@ -121,6 +134,7 @@ public class StudentController {
     @Operation(summary = "批量录取")
     @PostMapping("/batch-admit")
     @RequireRole({"SCHOOL_ADMIN", "SCHOOL_STAFF"})
+    @AuditAction("ADMIT")
     public Result<Void> batchAdmit(@RequestBody @Valid BatchAdmitRequest req) {
         for (UUID pushId : req.getPushIds()) {
             admissionService.directAdmission(pushId, req.getMajorId(),
@@ -136,7 +150,18 @@ public class StudentController {
         // 按姓名或证件号或候选人ID模糊搜索
         // OP_ADMIN 查全部，SCHOOL 角色查本校
         UUID schoolId = SecurityContext.isOpAdmin() ? null : SecurityContext.getSchoolId();
-        return Result.ok(candidateService.searchCandidates(schoolId, keyword));
+        List<CandidatePush> list = candidateService.searchCandidates(schoolId, keyword);
+
+        // OP_ADMIN 视角：ENROLLED_ELSEWHERE → ADMITTED
+        if (SecurityContext.isOpAdmin()) {
+            list.forEach(r -> {
+                if ("ENROLLED_ELSEWHERE".equals(r.getStatus())) {
+                    r.setStatus("ADMITTED");
+                }
+            });
+        }
+
+        return Result.ok(list);
     }
 
     @Operation(summary = "考生操作时间线")
@@ -149,6 +174,7 @@ public class StudentController {
     @Operation(summary = "终裁录取（条件满足转正式）")
     @PostMapping("/finalize")
     @RequireRole({"SCHOOL_ADMIN", "SCHOOL_STAFF"})
+    @AuditAction("FINALIZE")
     public Result<Void> finalize(@RequestBody @Valid FinalizeRequest req) {
         admissionService.finalAdmission(req.getPushId(), SecurityContext.getAccountId());
         return Result.ok();
@@ -157,9 +183,27 @@ public class StudentController {
     @Operation(summary = "撤销录取")
     @PostMapping("/revoke")
     @RequireRole({"SCHOOL_ADMIN", "SCHOOL_STAFF"})
+    @AuditAction("REVOKE")
     public Result<Void> revoke(@RequestBody @Valid RevokeRequest req) {
         admissionService.revokeAdmission(req.getPushId(), SecurityContext.getAccountId());
         return Result.ok();
+    }
+
+    @Operation(summary = "发送补录邀请（模式二）")
+    @PostMapping("/{pushId}/send-invitation")
+    @RequireRole({"SCHOOL_ADMIN", "SCHOOL_STAFF"})
+    public Result<Void> sendInvitation(@PathVariable UUID pushId, @RequestBody @Valid SendInvitationRequest req) {
+        admissionService.sendInvitation(pushId, req.getMajorId(), req.getMessage(), SecurityContext.getAccountId());
+        return Result.ok();
+    }
+
+    @Operation(summary = "批量发送补录邀请（模式二）")
+    @PostMapping("/batch-send-invitation")
+    @RequireRole({"SCHOOL_ADMIN", "SCHOOL_STAFF"})
+    public Result<Map<String, Object>> batchSendInvitation(@RequestBody @Valid BatchSendInvitationRequest req) {
+        int count = admissionService.batchSendInvitation(req.getPushIds(), req.getMajorId(),
+                req.getMessage(), SecurityContext.getAccountId());
+        return Result.ok(Map.of("count", count));
     }
 
     @Operation(summary = "导出考生列表 Excel")
@@ -184,6 +228,15 @@ public class StudentController {
                 pushTimeStart != null ? pushTimeStart.atStartOfDay(ZoneId.systemDefault()).toInstant() : null,
                 pushTimeEnd != null ? pushTimeEnd.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant() : null,
                 majorId, round);
+
+        // OP_ADMIN 视角：ENROLLED_ELSEWHERE → ADMITTED
+        if (SecurityContext.isOpAdmin()) {
+            records.forEach(r -> {
+                if ("ENROLLED_ELSEWHERE".equals(r.getStatus())) {
+                    r.setStatus("ADMITTED");
+                }
+            });
+        }
 
         // 转换为导出 DTO
         List<StudentExportDTO> dtoList = records.stream().map(r -> {
@@ -284,5 +337,18 @@ public class StudentController {
     @Data
     public static class RevokeRequest {
         @NotNull private UUID pushId;
+    }
+
+    @Data
+    public static class SendInvitationRequest {
+        @NotNull private UUID majorId;
+        private String message;
+    }
+
+    @Data
+    public static class BatchSendInvitationRequest {
+        @NotNull private List<UUID> pushIds;
+        @NotNull private UUID majorId;
+        private String message;
     }
 }

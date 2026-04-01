@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.campus.platform.repository.SupplementInvitationRepository">
+
+    <select id="pageQuery" resultType="com.campus.platform.entity.SupplementInvitation">
+        SELECT si.*,
+               s.school_name  AS schoolName,
+               m.major_name   AS majorName,
+               cp.candidate_name AS candidateName
+        FROM supplement_invitation si
+        LEFT JOIN school s  ON si.school_id = s.school_id
+        LEFT JOIN major m  ON si.invitation_major_id = m.major_id
+        LEFT JOIN candidate_push cp ON si.push_id = cp.push_id
+        WHERE 1=1
+          <if test="schoolId != null">
+            AND si.school_id = #{schoolId}
+          </if>
+          <if test="status != null and status != ''">
+            AND si.status = #{status}
+          </if>
+          <if test="round != null">
+            AND si.supplement_round = #{round}
+          </if>
+          <if test="candidateKeyword != null and candidateKeyword != ''">
+            AND (si.candidate_id ILIKE '%' || #{candidateKeyword} || '%'
+                 OR cp.candidate_name ILIKE '%' || #{candidateKeyword} || '%')
+          </if>
+        ORDER BY si.sent_at DESC
+    </select>
+
+    <select id="findExpiredInvitations" resultType="com.campus.platform.entity.SupplementInvitation">
+        SELECT * FROM supplement_invitation
+        WHERE status = 'INVITED'
+          AND expires_at &lt;= #{now}
+    </select>
+
+    <select id="findById" resultType="com.campus.platform.entity.SupplementInvitation">
+        SELECT * FROM supplement_invitation WHERE invitation_id = #{invitationId}
+    </select>
+
+    <select id="findByCandidateId" resultType="com.campus.platform.entity.SupplementInvitation">
+        SELECT * FROM supplement_invitation WHERE candidate_id = #{candidateId}
+        ORDER BY sent_at DESC
+    </select>
+
+    <select id="findByPushId" resultType="com.campus.platform.entity.SupplementInvitation">
+        SELECT * FROM supplement_invitation WHERE push_id = #{pushId}
+        ORDER BY sent_at DESC
+    </select>
+
+    <select id="findBySchoolId" resultType="com.campus.platform.entity.SupplementInvitation">
+        SELECT * FROM supplement_invitation WHERE school_id = #{schoolId}
+        ORDER BY sent_at DESC
+    </select>
+
+    <select id="listBySchoolId" resultType="com.campus.platform.entity.SupplementInvitation">
+        SELECT si.*,
+               s.school_name  AS schoolName,
+               m.major_name   AS majorName,
+               cp.candidate_name AS candidateName
+        FROM supplement_invitation si
+        LEFT JOIN school s  ON si.school_id = s.school_id
+        LEFT JOIN major m  ON si.invitation_major_id = m.major_id
+        LEFT JOIN candidate_push cp ON si.push_id = cp.push_id
+        WHERE 1=1
+          <if test="schoolId != null">
+            AND si.school_id = #{schoolId}
+          </if>
+          <if test="status != null and status != ''">
+            AND si.status = #{status}
+          </if>
+          <if test="round != null">
+            AND si.supplement_round = #{round}
+          </if>
+          <if test="candidateKeyword != null and candidateKeyword != ''">
+            AND (si.candidate_id ILIKE '%' || #{candidateKeyword} || '%'
+                 OR cp.candidate_name ILIKE '%' || #{candidateKeyword} || '%')
+          </if>
+        ORDER BY si.sent_at DESC
+        LIMIT 500
+    </select>
+
+    <select id="findByStatus" resultType="com.campus.platform.entity.SupplementInvitation">
+        SELECT * FROM supplement_invitation WHERE status = #{status}
+        ORDER BY sent_at DESC
+    </select>
+
+    <select id="findLatestByCandidateId" resultType="com.campus.platform.entity.SupplementInvitation">
+        SELECT * FROM supplement_invitation
+        WHERE candidate_id = #{candidateId}
+        ORDER BY sent_at DESC
+        LIMIT 1
+    </select>
+
+</mapper>

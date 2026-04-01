@@ -1,6 +1,7 @@
 package com.campus.platform.security;
 
 import com.campus.platform.entity.AuditLog;
+import com.campus.platform.repository.AuditLogRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -11,6 +12,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
+import java.util.UUID;
 
 /**
  * 审计日志切面：
@@ -24,8 +26,7 @@ import java.lang.reflect.Method;
 @RequiredArgsConstructor
 public class AuditLogAspect {
 
-    // 实际注入 AuditLogRepository
-    // private final AuditLogRepository auditLogRepository;
+    private final AuditLogRepository auditLogRepository;
 
     @Around("@annotation(auditAction)")
     public Object logOperation(ProceedingJoinPoint joinPoint, AuditAction auditAction) throws Throwable {
@@ -46,8 +47,8 @@ public class AuditLogAspect {
             if (principal != null) {
                 log.debug("[审计] action={}, accountId={}, role={}, cost={}ms",
                         action, principal.getAccountId(), principal.getRole(), cost);
-                // 异步写审计日志（实际需要注入 Repository）
-                // writeAuditLogAsync(principal, action, joinPoint, result);
+                // 异步写审计日志
+                writeAuditLogAsync(principal, action, joinPoint, result);
             }
         }
     }
@@ -63,13 +64,14 @@ public class AuditLogAspect {
             Method method = signature.getMethod();
 
             AuditLog audit = new AuditLog();
+            audit.setAuditId(UUID.randomUUID());
             audit.setOperatorId(principal.getAccountId());
             audit.setOperatorRole(principal.getRole());
             audit.setSchoolId(principal.getSchoolId());
             audit.setAction(action);
             audit.setOperatedAt(java.time.Instant.now());
 
-            // auditLogRepository.insert(audit);
+            auditLogRepository.insert(audit);
             log.debug("审计日志写入成功: action={}", action);
         } catch (Exception e) {
             log.error("审计日志写入失败: action={}", action, e);

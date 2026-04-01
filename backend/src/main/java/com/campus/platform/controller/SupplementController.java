@@ -11,6 +11,7 @@ import com.campus.platform.repository.CandidatePushRepository;
 import com.campus.platform.repository.SupplementRoundRepository;
 import com.campus.platform.security.RequireRole;
 import com.campus.platform.security.SecurityContext;
+import com.campus.platform.service.SupplementRoundService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -34,12 +35,14 @@ public class SupplementController {
 
     private final SupplementRoundRepository supplementRoundRepository;
     private final CandidatePushRepository candidatePushRepository;
+    private final SupplementRoundService supplementRoundService;
 
     @Operation(summary = "获取所有补录轮次")
     @GetMapping
     @RequireRole({"OP_ADMIN", "SCHOOL_ADMIN", "SCHOOL_STAFF"})
     public Result<List<Map<String, Object>>> list() {
-        List<SupplementRound> rounds = supplementRoundRepository.findAll();
+        // 使用 selectList 而非 findAll()，以便 MyBatis Plus 自动过滤软删除记录
+        List<SupplementRound> rounds = supplementRoundRepository.selectList(null);
 
         // 按 roundNumber 倒序
         rounds.sort((a, b) -> Integer.compare(b.getRoundNumber(), a.getRoundNumber()));
@@ -128,8 +131,61 @@ public class SupplementController {
                                      @RequestBody UpdateStatusRequest req) {
         SupplementRound round = supplementRoundRepository.findById(roundId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ROUND_NOT_FOUND, "补录轮次不存在"));
+
+        // 开启ACTIVE状态时的校验
+        if ("ACTIVE".equals(req.getStatus())) {
+            // 检查是否已有进行中的补录周期（防止重叠）
+            if (supplementRoundService.hasActiveRound()) {
+                throw new BusinessException(ErrorCode.ROUND_NOT_FOUND,
+                        "已存在进行中的补录周期，请先关闭后再开启新的周期");
+            }
+            // 检查结束时间是否已过
+            if (round.getEndTime().isBefore(Instant.now())) {
+                throw new BusinessException(ErrorCode.ROUND_NOT_FOUND,
+                        "结束时间已过，无法开启此补录周期");
+            }
+        }
+
         round.setStatus(req.getStatus());
         supplementRoundRepository.updateById(round);
+        return Result.ok();
+    }
+
+    @Operation(summary = "更新补录轮次（编辑初录时间等）")
+    @PutMapping("/{roundId}")
+    @RequireRole({"OP_ADMIN"})
+    public Result<Void> updateRound(@PathVariable UUID roundId,
+                                     @RequestBody @Valid UpdateRoundRequest req) {
+        SupplementRound round = supplementRoundRepository.findById(roundId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ROUND_NOT_FOUND, "补录轮次不存在"));
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        if (req.getStartTime() != null) {
+            Instant startInstant = LocalDateTime.parse(req.getStartTime(), fmt)
+                    .atZone(ZoneId.of("Asia/Shanghai")).toInstant();
+            round.setStartTime(startInstant);
+        }
+        if (req.getEndTime() != null) {
+            Instant endInstant = LocalDateTime.parse(req.getEndTime(), fmt)
+                    .atZone(ZoneId.of("Asia/Shanghai")).toInstant();
+            round.setEndTime(endInstant);
+        }
+        if (req.getRemark() != null) {
+            round.setRemark(req.getRemark());
+        }
+        if (req.getStatus() != null) {
+            round.setStatus(req.getStatus());
+        }
+        supplementRoundRepository.updateById(round);
+        return Result.ok();
+    }
+
+    @Operation(summary = "删除补录轮次")
+    @DeleteMapping("/{roundId}")
+    @RequireRole({"OP_ADMIN"})
+    public Result<Void> deleteRound(@PathVariable UUID roundId) {
+        SupplementRound round = supplementRoundRepository.findById(roundId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ROUND_NOT_FOUND, "补录轮次不存在"));
+        supplementRoundRepository.deleteById(roundId);
         return Result.ok();
     }
 
@@ -144,5 +200,13 @@ public class SupplementController {
     @Data
     public static class UpdateStatusRequest {
         @NotBlank private String status;
+    }
+
+    @Data
+    public static class UpdateRoundRequest {
+        private String startTime;
+        private String endTime;
+        private String remark;
+        private String status;
     }
 }

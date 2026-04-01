@@ -25,6 +25,7 @@ import java.util.UUID;
  * 3. 终裁录取（预占转正式）
  * 4. 撤销录取（名额释放）
  * 5. 拒绝（名额释放）
+ * 6. 补录邀请（模式二：院校主动邀请考生）
  */
 @Slf4j
 @Service
@@ -39,6 +40,7 @@ public class AdmissionService {
     private final RedisService redisService;
     private final OperationLogService operationLogService;
     private final NotificationService notificationService;
+    private final SchoolConfigService schoolConfigService;
 
     /**
      * 直接录取
@@ -323,6 +325,199 @@ public class AdmissionService {
         int reserved = quota.getReservedCount() != null ? quota.getReservedCount() : 0;
         if (total > 0 && (double) (admitted + reserved) / total >= 0.9) {
             notificationService.onQuotaOver90(quota.getSchoolId(), majorName, admitted + reserved, total);
+        }
+    }
+
+    // ========== 补录邀请相关方法（模式二）==========
+
+    /**
+     * 发送补录邀请（模式二）
+     * @param pushId 考生推送ID
+     * @param majorId 邀请录取专业
+     * @param message 邀请留言
+     * @param operatorId 操作人ID
+     */
+    @Transactional
+    public void sendInvitation(UUID pushId, UUID majorId, String message, UUID operatorId) {
+        if (!schoolConfigService.isSupplementModeTwo()) {
+            throw new BusinessException(ErrorCode.OPERATION_NOT_ALLOWED, "当前未启用模式二（院校主动邀请）");
+        }
+
+        String lockKey = "admission:" + pushId;
+        if (!redisService.tryLock(lockKey, java.time.Duration.ofMinutes(1))) {
+            throw new BusinessException(ErrorCode.DUPLICATE_ADMISSION, "操作过于频繁，请稍后重试");
+        }
+        try {
+            CandidatePush push = candidatePushRepository.findById(pushId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.CANDIDATE_NOT_FOUND, "考生记录不存在"));
+
+            // 验证状态：只有 PENDING/REJECTED/INVALIDATED 可以被邀请
+            CandidateStatus currentStatus = CandidateStatus.valueOf(push.getStatus());
+            if (!currentStatus.canBeInvited()) {
+                throw new BusinessException(ErrorCode.STATUS_TRANSITION_INVALID, "当前状态不允许发送邀请");
+            }
+
+            int year = LocalDate.now().getYear();
+            Optional<AdmissionQuota> optQuota = admissionQuotaRepository
+                    .findBySchoolMajorYear(push.getSchoolId(), majorId, year);
+            if (optQuota.isEmpty()) {
+                throw new BusinessException(ErrorCode.QUOTA_NOT_FOUND, "未找到该专业名额配置");
+            }
+            AdmissionQuota quota = optQuota.get();
+
+            // 预占名额
+            quota.setReservedCount(quota.getReservedCount() + 1);
+            admissionQuotaRepository.updateById(quota);
+
+            // 计算邀请过期时间
+            int defaultDays = schoolConfigService.getInvitationDefaultDays();
+            Instant expiresAt = Instant.now().plus(java.time.Duration.ofDays(defaultDays));
+
+            // 更新考生状态
+            push.setStatus(CandidateStatus.INVITED.name());
+            push.setAdmissionMajorId(majorId);
+            push.setInvitationSentAt(Instant.now());
+            push.setInvitationExpiresAt(expiresAt);
+            push.setInvitationMajorId(majorId);
+            push.setInvitationMessage(message);
+            push.setOperatorId(operatorId);
+            push.setOperatedAt(Instant.now());
+            candidatePushRepository.updateById(push);
+
+            // 通知报名平台
+            String majorName = majorRepository.findById(majorId).map(Major::getMajorName).orElse("");
+            registrationPlatformClient.sendInvitationNotify(
+                    push.getSchoolId(), push.getCandidateId(), push.getCandidateName(),
+                    majorName, message, expiresAt.toString());
+
+            operationLogService.log(pushId, "SEND_INVITATION", operatorId,
+                    "发送补录邀请: " + majorName + "，留言: " + message);
+
+            // 名额超 90% 预警
+            checkQuotaOver90Alert(quota, majorName);
+
+            log.info("发送补录邀请: pushId={}, majorId={}", pushId, majorId);
+        } finally {
+            redisService.unlock(lockKey);
+        }
+    }
+
+    /**
+     * 批量发送补录邀请（模式二）
+     */
+    @Transactional
+    public int batchSendInvitation(java.util.List<UUID> pushIds, UUID majorId, String message, UUID operatorId) {
+        if (!schoolConfigService.isSupplementModeTwo()) {
+            throw new BusinessException(ErrorCode.OPERATION_NOT_ALLOWED, "当前未启用模式二（院校主动邀请）");
+        }
+
+        int successCount = 0;
+        for (UUID pushId : pushIds) {
+            try {
+                sendInvitation(pushId, majorId, message, operatorId);
+                successCount++;
+            } catch (Exception e) {
+                log.warn("批量发送邀请失败: pushId={}", pushId, e);
+            }
+        }
+        return successCount;
+    }
+
+    /**
+     * 考生接受邀请（回调）
+     * @param pushId 考生推送ID
+     */
+    @Transactional
+    public void acceptInvitation(UUID pushId) {
+        CandidatePush push = candidatePushRepository.findById(pushId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CANDIDATE_NOT_FOUND, "考生记录不存在"));
+
+        if (!CandidateStatus.INVITED.name().equals(push.getStatus())) {
+            throw new BusinessException(ErrorCode.STATUS_TRANSITION_INVALID, "当前状态不是已发出邀请");
+        }
+
+        // 检查邀请是否过期
+        if (push.getInvitationExpiresAt() != null && push.getInvitationExpiresAt().isBefore(Instant.now())) {
+            throw new BusinessException(ErrorCode.STATUS_TRANSITION_INVALID, "邀请已过期");
+        }
+
+        // 状态变更为 PENDING，等待院校正式录取
+        push.setStatus(CandidateStatus.PENDING.name());
+        push.setOperatedAt(Instant.now());
+        candidatePushRepository.updateById(push);
+
+        operationLogService.log(pushId, "ACCEPT_INVITATION", null, "考生接受补录邀请");
+
+        // 通知院校
+        notificationService.notifySchoolAdmins(
+                push.getSchoolId(), pushId,
+                "考生接受补录邀请",
+                String.format("考生 %s 已接受补录邀请，请及时处理", push.getCandidateName()));
+
+        log.info("考生接受邀请: pushId={}", pushId);
+    }
+
+    /**
+     * 考生拒绝邀请（回调）
+     * @param pushId 考生推送ID
+     */
+    @Transactional
+    public void rejectInvitation(UUID pushId) {
+        CandidatePush push = candidatePushRepository.findById(pushId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CANDIDATE_NOT_FOUND, "考生记录不存在"));
+
+        if (!CandidateStatus.INVITED.name().equals(push.getStatus())) {
+            throw new BusinessException(ErrorCode.STATUS_TRANSITION_INVALID, "当前状态不是已发出邀请");
+        }
+
+        // 释放预占名额
+        releaseInvitationQuota(push);
+
+        // 状态变更为 REJECTED
+        push.setStatus(CandidateStatus.REJECTED.name());
+        push.setOperatedAt(Instant.now());
+        candidatePushRepository.updateById(push);
+
+        operationLogService.log(pushId, "REJECT_INVITATION", null, "考生拒绝补录邀请");
+
+        log.info("考生拒绝邀请: pushId={}", pushId);
+    }
+
+    /**
+     * 处理邀请超时（定时任务调用）
+     */
+    @Transactional
+    public void handleInvitationExpired(UUID pushId) {
+        CandidatePush push = candidatePushRepository.findById(pushId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CANDIDATE_NOT_FOUND, "考生记录不存在"));
+
+        if (!CandidateStatus.INVITED.name().equals(push.getStatus())) {
+            return; // 已经不是邀请状态，跳过
+        }
+
+        // 释放预占名额
+        releaseInvitationQuota(push);
+
+        // 状态变更为 REJECTED（邀请超时）
+        push.setStatus(CandidateStatus.REJECTED.name());
+        push.setOperatedAt(Instant.now());
+        candidatePushRepository.updateById(push);
+
+        operationLogService.log(pushId, "INVITATION_EXPIRED", null, "补录邀请超时");
+
+        log.info("邀请超时处理: pushId={}", pushId);
+    }
+
+    private void releaseInvitationQuota(CandidatePush push) {
+        if (push.getInvitationMajorId() == null) return;
+        int year = LocalDate.now().getYear();
+        Optional<AdmissionQuota> opt = admissionQuotaRepository
+                .findBySchoolMajorYear(push.getSchoolId(), push.getInvitationMajorId(), year);
+        if (opt.isEmpty()) return;
+        AdmissionQuota quota = opt.get();
+        if (quota.getReservedCount() > 0) {
+            quota.setReservedCount(quota.getReservedCount() - 1);
+            admissionQuotaRepository.updateById(quota);
         }
     }
 }
