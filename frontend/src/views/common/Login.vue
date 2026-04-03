@@ -13,7 +13,7 @@
           </svg>
         </div>
         <h1 class="login-title">院校管理平台</h1>
-        <p class="login-subtitle">中国政府奖学金项目招生管理系统</p>
+        <p class="login-subtitle">院效管理平台招生管理系统</p>
       </div>
 
       <el-form

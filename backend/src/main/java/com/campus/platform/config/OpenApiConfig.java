@@ -15,7 +15,7 @@ public class OpenApiConfig {
             .info(new Info()
                 .title("院校管理平台 API")
                 .version("1.0.0")
-                .description("中国政府奖学金项目留学生招生录取管理平台 RESTful API 文档")
+                .description("院效管理平台留学生招生录取管理平台 RESTful API 文档")
                 .contact(new Contact()
                     .name("开发团队")
                     .email("dev@campus-platform.com"))

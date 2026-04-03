@@ -42,7 +42,7 @@ describe('Login Component', () => {
     expect(html).toContain('el-form-stub')
     // The page title is visible
     expect(wrapper.text()).toContain('院校管理平台')
-    expect(wrapper.text()).toContain('中国政府奖学金项目招生管理系统')
+    expect(wrapper.text()).toContain('院效管理平台招生管理系统')
   })
 
   it('contains login-related structure', () => {
@@ -62,6 +62,6 @@ describe('Login Component', () => {
     })
 
     expect(wrapper.find('.login-title').text()).toBe('院校管理平台')
-    expect(wrapper.find('.login-subtitle').text()).toBe('中国政府奖学金项目招生管理系统')
+    expect(wrapper.find('.login-subtitle').text()).toBe('院效管理平台招生管理系统')
   })
 })

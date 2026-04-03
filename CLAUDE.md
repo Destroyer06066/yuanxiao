@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-院校管理平台（campus-platform）是一个多租户招生录取管理系统，支持中国政府奖学金项目留学生招生。
+院校管理平台（campus-platform）是一个多租户招生录取管理系统，支持院效管理平台留学生招生。
 
 ## 用户偏好
 - **所有开发，修复工作完成后，都要用浏览器测试，通过后才可以反馈工作完成。用有头模式测试，第一优先使用 Chrome DevTools MCP，第二使用 Agent-Browser
@@ -50,11 +50,20 @@ cd frontend && npm install && npm run dev
 
 ## 常用命令
 
+### 一键启动
+
+```bash
+# 启动全部基础设施（PostgreSQL/Redis/MinIO/Mock），最方便
+./start.sh
+```
+
 ### 后端
 
 ```bash
+cd backend
+
 # 编译打包
-cd backend && mvn compile
+mvn compile
 
 # 运行测试
 mvn test
@@ -64,6 +73,9 @@ mvn package -DskipTests
 
 # 清理并重新打包
 mvn clean package -DskipTests
+
+# 以 JAR 方式启动（推荐，脱离 IDE）
+java -jar target/campus-platform-1.0.0-SNAPSHOT.jar --spring.profiles.active=dev
 ```
 
 ### 前端
@@ -80,11 +92,29 @@ npm run type-check
 # ESLint检查
 npm run lint
 
-# 运行测试
+# 单元测试（vitest）
 npm run test
 
 # 生产构建
 npm run build
+```
+
+### E2E 测试（Playwright）
+
+```bash
+cd e2e
+
+# 安装依赖（首次）
+npm install
+
+# 运行 E2E 测试（按角色分组：op_admin / school_admin / school_staff）
+npx playwright test
+
+# 仅运行某一角色
+npx playwright test --project=op_admin
+
+# 查看 HTML 报告
+npx playwright show-report
 ```
 
 ## 架构
@@ -144,7 +174,9 @@ frontend/src/
 
 迁移文件位于 `backend/src/main/resources/db/migration/`：
 - V1__init_schema.sql: 初始16张表
-- V2-V7: 增量迁移
+- V2-V19: 增量迁移（含权限模块、补录模式、分数线等）
+
+**注意**：Flyway 迁移由后端启动时自动执行，无需手动运行。
 
 ### 外部集成
 
@@ -189,3 +221,12 @@ PENDING → CONDITIONAL → ADMITTED → CONFIRMED → MATERIAL_RECEIVED → CHE
 2. **Java版本**: 项目要求Java 21，但编译产物可在Java 17+运行。
 3. **数据库重建**: 需要重建数据库时，先删除再创建：先`pg_terminate_backend`断开连接，再`DROP DATABASE`。
 4. **前端端口**: Vite开发服务器可能占用5173/5174，视启动情况而定。
+5. **Git Worktree**: 项目使用 `.worktrees` 目录隔离功能分支开发，分支命名规范 `feature/`、`fix/`、`chore/`。
+
+## 补充文档
+
+`docs/` 目录下有更多文档：
+- `集成测试指南.md` — 核心业务流程测试用例
+- `部署文档.md` — 生产环境部署指南
+- `API.md` — API 设计说明
+- `plans/` — 功能设计与实现计划
