@@ -454,7 +454,8 @@ public class StatisticsService {
                 "four", four,
                 "five", five,
                 "sixPlus", sixPlus,
-                "total", once + twice + three + four + five + sixPlus
+                "total", once + twice + three + four + five + sixPlus,
+                "totalPushCount", records.size()
         );
     }
 

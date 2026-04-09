@@ -2,7 +2,7 @@
   <div class="page-container">
     <div class="page-header">
       <h2 class="page-title">专业配置</h2>
-      <el-button v-if="can('major:create')" type="primary" @click="openCreate">
+      <el-button v-if="can('major:create') && !auth.isOpAdmin" type="primary" @click="openCreate">
         <el-icon><Plus /></el-icon> 新增专业
       </el-button>
     </div>
@@ -10,6 +10,9 @@
     <el-card>
       <!-- 筛选条件 -->
       <div class="filter-row">
+        <el-select v-if="auth.isOpAdmin" v-model="query.schoolId" placeholder="选择院校" style="width: 200px" clearable filterable @change="doSearch">
+          <el-option v-for="s in schoolList" :key="s.schoolId" :label="s.schoolName" :value="s.schoolId" />
+        </el-select>
         <el-select v-model="query.status" placeholder="状态" style="width: 120px" clearable @change="doSearch">
           <el-option label="全部" value="" />
           <el-option label="启用" value="ACTIVE" />
@@ -21,6 +24,7 @@
 
       <!-- 表格 -->
       <el-table :data="list" v-loading="loading" stripe style="margin-top: 12px">
+        <el-table-column v-if="auth.isOpAdmin" prop="schoolName" label="院校名称" min-width="160" />
         <el-table-column prop="majorName" label="专业名称" min-width="160" />
         <el-table-column prop="degreeLevel" label="学位层次" width="120">
           <template #default="{ row }">
@@ -37,9 +41,9 @@
         <el-table-column prop="createdAt" label="创建时间" width="170" />
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
-            <el-button v-if="can('major:edit')" type="primary" link @click="openEdit(row)">编辑</el-button>
+            <el-button v-if="can('major:edit') && !auth.isOpAdmin" type="primary" link @click="openEdit(row)">编辑</el-button>
             <el-button
-              v-if="can('major:disable')"
+              v-if="can('major:disable') && !auth.isOpAdmin"
               :type="row.status === 'ACTIVE' ? 'danger' : 'success'" link
               @click="handleToggle(row)"
             >
@@ -96,8 +100,11 @@ import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import axios from '@/api/axios'
 import { usePermission } from '@/composables/usePermission'
+import { useAuthStore } from '@/stores/auth'
+import { getSchools } from '@/api/school'
 
 const { can } = usePermission()
+const auth = useAuthStore()
 
 const degreeLevelMap: Record<string, string> = {
   '本科': '本科',
@@ -114,8 +121,10 @@ const isEdit = ref(false)
 const dialogVisible = ref(false)
 const editingId = ref('')
 const formRef = ref<FormInstance>()
+const schoolList = ref<any[]>([])
 
 const query = reactive({
+  schoolId: '',
   status: '',
   page: 1,
   pageSize: 20,
@@ -142,6 +151,7 @@ async function fetchMajors() {
   try {
     const params: any = { page: query.page, pageSize: query.pageSize }
     if (query.status) params.status = query.status
+    if (query.schoolId) params.schoolId = query.schoolId
     const res = await axios.get('/v1/majors', { params })
     list.value = res.data.data.records || []
     total.value = res.data.data.total || 0
@@ -152,13 +162,22 @@ async function fetchMajors() {
   }
 }
 
+async function fetchSchools() {
+  try {
+    const res = await getSchools({ page: 1, pageSize: 200 })
+    schoolList.value = res.data.data.records || []
+  } catch {
+    // error handled by axios interceptor
+  }
+}
+
 function doSearch() {
   query.page = 1
   fetchMajors()
 }
 
 function resetQuery() {
-  query.status = ''
+  query.schoolId = ''; query.status = ''
   query.page = 1
   fetchMajors()
 }
@@ -228,6 +247,9 @@ async function handleToggle(row: any) {
 
 // ========== 初始化 ==========
 onMounted(() => {
+  if (auth.isOpAdmin) {
+    fetchSchools()
+  }
   fetchMajors()
 })
 </script>

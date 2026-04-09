@@ -60,6 +60,22 @@
             </el-menu-item>
           </el-sub-menu>
 
+          <el-sub-menu index="config">
+            <template #title><el-icon><Reading /></el-icon><span>配置管理</span></template>
+            <el-menu-item index="/majors">
+              <el-icon><Reading /></el-icon>
+              <template #title>专业配置</template>
+            </el-menu-item>
+            <el-menu-item index="/quota">
+              <el-icon><DataLine /></el-icon>
+              <template #title>名额管理</template>
+            </el-menu-item>
+            <el-menu-item index="/brochure">
+              <el-icon><Document /></el-icon>
+              <template #title>招生简章</template>
+            </el-menu-item>
+          </el-sub-menu>
+
           <el-menu-item index="/notifications">
             <el-icon><Bell /></el-icon>
             <template #title>站内通知</template>

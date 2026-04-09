@@ -2,7 +2,7 @@
   <div class="page-container">
     <div class="page-header">
       <h2 class="page-title">名额管理</h2>
-      <el-button v-if="can('quota:create')" type="primary" @click="openCreate">
+      <el-button v-if="can('quota:create') && !auth.isOpAdmin" type="primary" @click="openCreate">
         <el-icon><Plus /></el-icon> 新增名额
       </el-button>
     </div>
@@ -10,6 +10,9 @@
     <el-card>
       <!-- 筛选条件 -->
       <div class="filter-row">
+        <el-select v-if="auth.isOpAdmin" v-model="query.schoolId" placeholder="选择院校" style="width: 200px" clearable filterable @change="onSchoolChange">
+          <el-option v-for="s in schoolList" :key="s.schoolId" :label="s.schoolName" :value="s.schoolId" />
+        </el-select>
         <el-select v-model="query.majorId" placeholder="选择专业" style="width: 200px" clearable filterable @change="doSearch">
           <el-option v-for="m in majorList" :key="m.majorId" :label="m.majorName" :value="m.majorId" />
         </el-select>
@@ -53,7 +56,7 @@
         </el-table-column>
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="{ row }">
-            <el-button v-if="can('quota:edit')" type="primary" link @click="openEdit(row)">编辑</el-button>
+            <el-button v-if="can('quota:edit') && !auth.isOpAdmin" type="primary" link @click="openEdit(row)">编辑</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -172,6 +175,7 @@ import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import axios from '@/api/axios'
 import { usePermission } from '@/composables/usePermission'
 import { useAuthStore } from '@/stores/auth'
+import { getSchools } from '@/api/school'
 
 const { can } = usePermission()
 const auth = useAuthStore()
@@ -185,6 +189,7 @@ const submitting = ref(false)
 const list = ref<any[]>([])
 const total = ref(0)
 const majorList = ref<any[]>([])
+const schoolList = ref<any[]>([])
 const isEdit = ref(false)
 const dialogVisible = ref(false)
 const editingId = ref('')
@@ -192,6 +197,7 @@ const editingRow = ref<any>(null)
 const formRef = ref<FormInstance>()
 
 const query = reactive({
+  schoolId: '',
   majorId: '',
   year: '',
   page: 1,
@@ -250,9 +256,23 @@ function quotaRowClass({ row }: { row: any }): string {
 async function fetchMajors() {
   try {
     const params: any = { page: 1, pageSize: 200 }
-    if (auth.schoolId) params.schoolId = auth.schoolId
+    // OP_ADMIN 可以指定 schoolId 查看任意院校的专业
+    if (auth.isOpAdmin && query.schoolId) {
+      params.schoolId = query.schoolId
+    } else if (auth.schoolId) {
+      params.schoolId = auth.schoolId
+    }
     const res = await axios.get('/v1/majors', { params })
     majorList.value = res.data.data.records || []
+  } catch {
+    // error handled by axios interceptor
+  }
+}
+
+async function fetchSchools() {
+  try {
+    const res = await getSchools({ page: 1, pageSize: 200 })
+    schoolList.value = res.data.data.records || []
   } catch {
     // error handled by axios interceptor
   }
@@ -262,9 +282,9 @@ async function fetchQuotas() {
   loading.value = true
   try {
     const params: any = { page: query.page, pageSize: query.pageSize }
+    if (query.schoolId) params.schoolId = query.schoolId
     if (query.majorId) params.majorId = query.majorId
     if (query.year) params.year = query.year
-    if (auth.schoolId) params.schoolId = auth.schoolId
     const res = await axios.get('/v1/quotas', { params })
     list.value = res.data.data.records || []
     total.value = res.data.data.total || 0
@@ -280,7 +300,14 @@ function doSearch() {
   fetchQuotas()
 }
 
+function onSchoolChange() {
+  query.majorId = '' // 切换院校时清空专业
+  fetchMajors()
+  fetchQuotas()
+}
+
 function resetQuery() {
+  query.schoolId = ''
   query.majorId = ''
   query.year = ''
   query.page = 1
@@ -422,6 +449,9 @@ async function saveScoreLines() {
 
 // ========== 初始化 ==========
 onMounted(() => {
+  if (auth.isOpAdmin) {
+    fetchSchools()
+  }
   fetchMajors()
   fetchQuotas()
 })

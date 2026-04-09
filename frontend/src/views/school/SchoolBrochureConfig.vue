@@ -3,15 +3,28 @@
     <div class="page-header">
       <h2 class="page-title">招生简章配置</h2>
     </div>
+
+    <!-- OP_ADMIN 模式：院校筛选 -->
+    <el-card v-if="auth.isOpAdmin" style="margin-bottom: 16px">
+      <div class="filter-row">
+        <el-select v-model="querySchoolId" placeholder="选择院校" style="width: 280px" clearable filterable @change="onSchoolChange">
+          <el-option v-for="s in schoolList" :key="s.schoolId" :label="s.schoolName" :value="s.schoolId" />
+        </el-select>
+      </div>
+    </el-card>
+
     <el-card>
       <!-- 只读预览模式 -->
       <div v-if="!editing">
         <el-alert v-if="!brochure.title" title="暂无招生简章" type="info" :closable="false" show-icon />
         <div v-else>
-          <h3>{{ brochure.title }}</h3>
+          <div class="brochure-header">
+            <h3>{{ brochure.title }}</h3>
+            <span v-if="auth.isOpAdmin && selectedSchoolName" class="school-badge">{{ selectedSchoolName }}</span>
+          </div>
           <div v-html="brochure.content" class="content-preview"></div>
         </div>
-        <el-button type="primary" style="margin-top: 16px" @click="startEdit">
+        <el-button v-if="!auth.isOpAdmin" type="primary" style="margin-top: 16px" @click="startEdit">
           {{ brochure.title ? '编辑简章' : '创建简章' }}
         </el-button>
       </div>
@@ -35,23 +48,56 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { QuillEditor } from '@vueup/vue-quill'
 import '@vueup/vue-quill/dist/vue-quill.snow.css'
 import { ElMessage } from 'element-plus'
 import axios from '@/api/axios'
+import { useAuthStore } from '@/stores/auth'
+import { getSchools } from '@/api/school'
+
+const auth = useAuthStore()
 
 const editing = ref(false)
 const saving = ref(false)
-const brochure = reactive({ brochureId: '', title: '', content: '' })
+const schoolList = ref<any[]>([])
+const querySchoolId = ref('')
+const brochure = reactive({ brochureId: '', schoolId: '', title: '', content: '' })
 const form = reactive({ title: '', content: '' })
 
+const selectedSchoolName = computed(() => {
+  const school = schoolList.value.find(s => s.schoolId === querySchoolId.value)
+  return school ? school.schoolName : ''
+})
+
+async function fetchSchools() {
+  try {
+    const res = await getSchools({ page: 1, pageSize: 200 })
+    schoolList.value = res.data.data.records || []
+  } catch {
+    // error handled by axios interceptor
+  }
+}
+
 async function fetchBrochure() {
-  const res = await axios.get('/v1/brochures')
+  const params: any = {}
+  if (auth.isOpAdmin && querySchoolId.value) {
+    params.schoolId = querySchoolId.value
+  }
+  const res = await axios.get('/v1/brochures', { params })
   const data = res.data.data
   brochure.brochureId = data.brochureId || ''
+  brochure.schoolId = data.schoolId || ''
   brochure.title = data.title || ''
   brochure.content = data.content || ''
+}
+
+function onSchoolChange() {
+  brochure.brochureId = ''
+  brochure.schoolId = ''
+  brochure.title = ''
+  brochure.content = ''
+  fetchBrochure()
 }
 
 function startEdit() {
@@ -80,7 +126,12 @@ async function save() {
   }
 }
 
-onMounted(() => { fetchBrochure() })
+onMounted(() => {
+  if (auth.isOpAdmin) {
+    fetchSchools()
+  }
+  fetchBrochure()
+})
 </script>
 
 <style scoped>
@@ -97,6 +148,27 @@ onMounted(() => { fetchBrochure() })
   margin: 0;
   font-size: 18px;
   font-weight: 600;
+}
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.brochure-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.brochure-header h3 {
+  margin: 0;
+}
+.school-badge {
+  background-color: #409eff;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
 }
 .content-preview {
   line-height: 1.8;

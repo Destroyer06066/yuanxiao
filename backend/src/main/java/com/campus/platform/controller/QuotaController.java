@@ -43,13 +43,18 @@ public class QuotaController {
     public Result<Map<String, Object>> list(
             @RequestParam(required = false) UUID majorId,
             @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) UUID schoolId,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int pageSize) {
 
-        UUID schoolId = null;
+        UUID contextSchoolId = null;
         String role = SecurityContext.getRole();
         if (!AccountRole.OP_ADMIN.name().equals(role)) {
-            schoolId = SecurityContext.getSchoolId();
+            contextSchoolId = SecurityContext.getSchoolId();
+        }
+        // OP_ADMIN 可以指定 schoolId 查看任意院校，不指定则查看全部
+        if (contextSchoolId != null) {
+            schoolId = contextSchoolId;
         }
 
         List<AdmissionQuota> quotas = quotaRepository.findAll(schoolId, majorId, year);

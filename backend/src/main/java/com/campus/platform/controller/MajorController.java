@@ -2,8 +2,10 @@ package com.campus.platform.controller;
 
 import com.campus.platform.common.result.Result;
 import com.campus.platform.entity.Major;
+import com.campus.platform.entity.School;
 import com.campus.platform.entity.enums.AccountRole;
 import com.campus.platform.repository.MajorRepository;
+import com.campus.platform.repository.SchoolRepository;
 import com.campus.platform.security.RequireRole;
 import com.campus.platform.security.SecurityContext;
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,31 +30,58 @@ import java.util.stream.Collectors;
 public class MajorController {
 
     private final MajorRepository majorRepository;
+    private final SchoolRepository schoolRepository;
 
     @Operation(summary = "查询本校专业列表")
     @GetMapping
     @RequireRole({"OP_ADMIN", "SCHOOL_ADMIN", "SCHOOL_STAFF"})
     public Result<Map<String, Object>> list(
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) UUID schoolId,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int pageSize) {
-        UUID schoolId = SecurityContext.getSchoolId();
-        if (schoolId == null) return Result.ok(Map.of("records", List.of(), "total", 0L, "page", page, "pageSize", pageSize));
+        // OP_ADMIN 可以指定 schoolId 查看任意院校，院校用户只能查看自己的
+        UUID contextSchoolId = SecurityContext.getSchoolId();
+        if (SecurityContext.isOpAdmin()) {
+            // OP_ADMIN：使用请求参数中的 schoolId（可选），未指定则返回全部
+        } else {
+            schoolId = contextSchoolId;
+        }
+        if (schoolId == null && !SecurityContext.isOpAdmin()) {
+            return Result.ok(Map.of("records", List.of(), "total", 0L, "page", page, "pageSize", pageSize));
+        }
 
-        List<Major> majors = (status != null && !status.isEmpty())
-                ? majorRepository.findBySchoolIdAndStatus(schoolId, status)
-                : majorRepository.findBySchoolId(schoolId);
+        List<Major> majors;
+        if (SecurityContext.isOpAdmin() && schoolId == null) {
+            // OP_ADMIN 且未指定 schoolId：返回所有专业
+            majors = (status != null && !status.isEmpty())
+                    ? majorRepository.findByStatus(status)
+                    : majorRepository.findAll();
+        } else {
+            majors = (status != null && !status.isEmpty())
+                    ? majorRepository.findBySchoolIdAndStatus(schoolId, status)
+                    : majorRepository.findBySchoolId(schoolId);
+        }
 
         int total = majors.size();
         int from = Math.min((page - 1) * pageSize, total);
         int to = Math.min(from + pageSize, total);
-        List<Map<String, Object>> records = majors.subList(from, to).stream().map(m -> Map.<String, Object>of(
-                "majorId", m.getMajorId().toString(),
-                "majorName", m.getMajorName(),
-                "degreeLevel", m.getDegreeLevel(),
-                "status", m.getStatus(),
-                "createdAt", m.getCreatedAt() != null ? m.getCreatedAt().toString() : ""
-        )).collect(Collectors.toList());
+        List<Map<String, Object>> records = majors.subList(from, to).stream().map(m -> {
+            String schoolName = "";
+            if (m.getSchoolId() != null) {
+                schoolName = schoolRepository.findById(m.getSchoolId())
+                        .map(School::getSchoolName).orElse("");
+            }
+            return Map.<String, Object>of(
+                    "majorId", m.getMajorId().toString(),
+                    "schoolId", m.getSchoolId() != null ? m.getSchoolId().toString() : "",
+                    "schoolName", schoolName,
+                    "majorName", m.getMajorName(),
+                    "degreeLevel", m.getDegreeLevel(),
+                    "status", m.getStatus(),
+                    "createdAt", m.getCreatedAt() != null ? m.getCreatedAt().toString() : ""
+            );
+        }).collect(Collectors.toList());
         return Result.ok(Map.of("records", records, "total", (long) total, "page", page, "pageSize", pageSize));
     }
 

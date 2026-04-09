@@ -17,36 +17,29 @@
     <!-- KPI 指标区 -->
     <div class="kpi-section">
       <div class="kpi-row">
-        <div class="kpi-card hero-card">
-          <div class="hero-card-bg"></div>
-          <div class="kpi-icon hero-icon">
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+        <div class="kpi-card">
+          <div class="kpi-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="kpi-content">
+            <div class="kpi-label">总推送次数</div>
+            <div class="kpi-value">{{ kpi.totalPushCount.toLocaleString() }}</div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
               <circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/>
               <path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
               <path d="M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             </svg>
           </div>
-          <div class="kpi-content hero-content">
-            <div class="hero-label">考生总数</div>
-            <div class="hero-value">{{ kpi.totalCandidates.toLocaleString() }}</div>
-            <div class="hero-trend up">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <path d="M18 15l-6-6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-              +12.5% 较上月
-            </div>
-          </div>
-          <div class="hero-substats">
-            <div class="substat">
-              <span class="substat-value">{{ pushCountData.total.toLocaleString() }}</span>
-              <span class="substat-label">独立考生</span>
-            </div>
-            <div class="substat-divider"></div>
-            <div class="substat">
-              <span class="substat-value">{{ (pushCountData.total > 0 ? Math.round(pushCountData.once / pushCountData.total * 100) : 0) }}%</span>
-              <span class="substat-label">单次推送</span>
-            </div>
+          <div class="kpi-content">
+            <div class="kpi-label">总推送考生数</div>
+            <div class="kpi-value">{{ pushCountData.total.toLocaleString() }}</div>
           </div>
         </div>
       </div>
@@ -206,8 +199,8 @@ import * as echarts from 'echarts'
 import { getRoundDistribution, getPushCountDistribution, getSchoolAdmissionRanges, getGenderDistribution, getAgeDistribution } from '@/api/statistics'
 
 const updateTime = ref('')
-const kpi = reactive({ totalCandidates: 0 })
-const pushCountData = reactive({ once: 0, twice: 0, three: 0, four: 0, five: 0, sixPlus: 0, total: 0 })
+const pushCountData = reactive({ once: 0, twice: 0, three: 0, four: 0, five: 0, sixPlus: 0, total: 0, totalPushCount: 0 })
+const kpi = reactive({ totalPushCount: 0, totalCandidates: 0 })
 const genderData = reactive({ male: 0, female: 0, other: 0, unknown: 0, total: 0 })
 const ageData = reactive({ under18: 0, age18to25: 0, age26to30: 0, age31to35: 0, age36to40: 0, over41: 0, unknown: 0, total: 0 })
 const schoolRanges = ref<any[]>([])
@@ -290,6 +283,7 @@ async function fetchAll() {
 
     const roundData = roundRes.data.data
     Object.assign(pushCountData, pushCountRes.data.data)
+    kpi.totalPushCount = pushCountRes.data.data.totalPushCount || 0
     Object.assign(genderData, genderRes.data.data)
     Object.assign(ageData, ageRes.data.data)
     schoolRanges.value = rangesRes.data.data
@@ -641,7 +635,7 @@ $shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0
 
 .kpi-row {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
 
